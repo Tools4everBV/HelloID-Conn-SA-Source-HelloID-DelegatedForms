@@ -428,8 +428,7 @@ foreach ($item in $script:dataSourcesGuids.GetEnumerator()) {
 
 # get all Global variables used in PS scripts (task data sources, powershell data source and delegated form task)
 $globalVariables = [System.Collections.Generic.List[object]]@();
-foreach ($item in $psScripts) {
-    $tmpScript = $item.script
+foreach ($tmpScript in $psScripts) {
     if (-not [string]::IsNullOrEmpty($tmpScript)) {
         foreach ($var in $allGlobalVariables) {
             $result = $tmpScript.IndexOf($var.Name)
@@ -507,7 +506,7 @@ foreach ($item in $dataSources) {
 
             # Output method call Data source with parameters
             $PowershellScript += ($item.guidRef) + " = [PSCustomObject]@{} `n"
-            $PowershellScript += "Invoke-HelloIDDatasource -DatasourceName ""$($item.datasource.Name)"" -DatasourceType ""$($item.datasource.type)"" -DatasourceInput `$tmpInput -DatasourceModel `$tmpModel -AutomationTaskGuid `$taskGuid -returnObject ([Ref]" + ($item.guidRef) + ") `n"
+            $PowershellScript += "Invoke-HelloIDDatasource -DatasourceName ""$($item.datasource.Name)$(if($debug -eq $true) { $debugSuffix })"" -DatasourceType ""$($item.datasource.type)"" -DatasourceInput `$tmpInput -DatasourceModel `$tmpModel -AutomationTaskGuid `$taskGuid -returnObject ([Ref]" + ($item.guidRef) + ") `n"
 
             break;
         }
