@@ -33,7 +33,6 @@ The PowerShell script "generate-all-in-one.ps1" contains a complete PowerShell s
 3. Create a HelloID [API key and secret](https://docs.helloid.com/hc/en-us/articles/360002008873-API-Keys-Overview)
 4. Update the [connection and configuration details](#update-connection-and-configuration-details) in the script's header
 5. Run the script on a machine with PowerShell support and an internet connection
-6. Perform any additional steps listed in [Post-setup configuration](#post-setup-configuration)
 
 ### Update connection and configuration details
 <table>
