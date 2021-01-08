@@ -387,7 +387,7 @@ foreach ($item in $script:dataSourcesGuids.GetEnumerator()) {
             2 {
                 # Export Data source to Manual resource folder
                 $tmpFileName = "$manualResourceFolder\[static-datasource]_$($dataSource.name)"
-                set-content -LiteralPath $tmpFileName -Value ($datasource.value | ConvertTo-Json) -Force
+                set-content -LiteralPath "$tmpFileName.json" -Value ($datasource.value | ConvertTo-Json) -Force
                 set-content -LiteralPath "$tmpFileName.model.json" -Value ($datasource.model | ConvertTo-Json) -Force
                 break;
             }
