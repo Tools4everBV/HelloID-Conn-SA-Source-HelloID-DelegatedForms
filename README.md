@@ -72,4 +72,4 @@ The generated all-in-one PowerShell script includes the following resources
 ## Known limitations
  * Only global variables of type "string" are supported
  * Only script variable mappings of type "string" are supported
- * Powershel script template "use template instead of inline Powershell script) is not supported
+ * Powershel script template (use template instead of inline Powershell script) is not supported
