@@ -69,6 +69,7 @@ The generated all-in-one PowerShell script includes the following resources
    * Categories are created if they don't exist in the target HelloID environment
 
 
-## Know limitations
+## Known limitations
  * Only global variables of type "string" are supported
  * Only script variable mappings of type "string" are supported
+ * Powershel script template "use template instead of inline Powershell script) is not supported
