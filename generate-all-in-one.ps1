@@ -343,15 +343,17 @@ $delegatedForm = (Get-HelloIDData -endpointUri "/api/v1/delegatedforms/$delegate
 $psScripts = [System.Collections.Generic.List[object]]@();
 $taskList = (Get-HelloIDData -endpointUri "/api/v1/automationtasks")
 $taskGUID = ($taskList | Where-Object { $_.objectGUID -eq $delegatedForm.delegatedFormGUID }).automationTaskGuid
-$delegatedFormTask = (Get-HelloIDData -endpointUri "/api/v1/automationtasks/$($taskGUID)")
+if(-not [string]::IsNullOrEmpty($taskGUID)) {
+    $delegatedFormTask = (Get-HelloIDData -endpointUri "/api/v1/automationtasks/$($taskGUID)")
 
-# Add Delegated Form Task to array of Powershell scripts (to find use of global variables)
-$tmpScript = $($delegatedFormTask.variables | Where-Object { $_.name -eq "powershellscript" }).Value;
-$psScripts.Add($tmpScript)
+    # Add Delegated Form Task to array of Powershell scripts (to find use of global variables)
+    $tmpScript = $($delegatedFormTask.variables | Where-Object { $_.name -eq "powershellscript" }).Value;
+    $psScripts.Add($tmpScript)
 
-# Export Delegated Form task to Manual Resource Folder
-$tmpFileName = "$manualResourceFolder\[task]_$($delegatedFormTask.Name).ps1"
-set-content -LiteralPath $tmpFileName -Value $tmpScript -Force
+    # Export Delegated Form task to Manual Resource Folder
+    $tmpFileName = "$manualResourceFolder\[task]_$($delegatedFormTask.Name).ps1"
+    set-content -LiteralPath $tmpFileName -Value $tmpScript -Force
+}
 
 #DynamicForm
 $dynamicForm = (Get-HelloIDData -endpointUri "/api/v1/forms/$($delegatedForm.dynamicFormGUID)")
