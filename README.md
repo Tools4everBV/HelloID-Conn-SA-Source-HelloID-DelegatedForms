@@ -9,7 +9,7 @@ This HelloID Service Automation Powershell script generates a complete set of fi
 * [PowerShell setup script](#powershell-setup-script)
   * [Update connection and configuration details](#update-connection-and-configuration-details)
 * [What is included?](#what-is-included?)
-* [Know limitations](#know-limitations)
+* [Known limitations](#known-limitations)
 
 
 ## Script outcome
