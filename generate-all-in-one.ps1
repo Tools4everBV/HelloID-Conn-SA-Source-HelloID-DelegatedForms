@@ -432,8 +432,9 @@ foreach ($item in $script:dataSourcesGuids.GetEnumerator()) {
 $globalVariables = [System.Collections.Generic.List[object]]@();
 foreach ($tmpScript in $psScripts) {
     if (-not [string]::IsNullOrEmpty($tmpScript)) {
+        $lowerCase = $tmpScript.ToLower()
         foreach ($var in $allGlobalVariables) {
-            $result = $tmpScript.IndexOf($var.Name)
+            $result = $lowerCase.IndexOf($var.Name.ToLower())
             
             if (($result -ne -1) -and (($globalVariables.name -match $var.name) -eq $false)) {
                 $tmpValue = if ($var.secret -eq $true) { ""; } else { $var.value; }
