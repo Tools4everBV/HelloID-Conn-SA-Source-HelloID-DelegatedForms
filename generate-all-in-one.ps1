@@ -523,7 +523,7 @@ foreach ($item in $dataSources) {
 
             # Output method call Data source with parameters
             $PowershellScript += ($item.guidRef) + " = [PSCustomObject]@{} `n"
-            $PowershellScript += "Invoke-HelloIDDatasource -DatasourceName ""$($item.datasource.Name)$(if($debug -eq $true) { $debugSuffix })"" -DatasourceType ""$($item.datasource.type)"" -DatasourceInput `$tmpInput -DatasourcePsScript -`$tmpPsScript -DatasourceModel `$tmpModel -returnObject ([Ref]" + ($item.guidRef) + ") `n"
+            $PowershellScript += "Invoke-HelloIDDatasource -DatasourceName ""$($item.datasource.Name)$(if($debug -eq $true) { $debugSuffix })"" -DatasourceType ""$($item.datasource.type)"" -DatasourceInput `$tmpInput -DatasourcePsScript `$tmpPsScript -DatasourceModel `$tmpModel -returnObject ([Ref]" + ($item.guidRef) + ") `n"
 
             break;
         }
