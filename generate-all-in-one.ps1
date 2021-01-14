@@ -213,9 +213,9 @@ function Invoke-HelloIDDynamicForm {
             #Create Dynamic form
             $body = @{
                 Name       = $FormName;
-                FormSchema = $FormSchema
+                FormSchema = [Object[]]($FormSchema | ConvertFrom-Json)
             }
-            $body = $body | ConvertTo-Json
+            $body = $body | ConvertTo-Json -Depth 100
     
             $uri = ($script:PortalBaseUrl +"api/v1/forms")
             $response = Invoke-RestMethod -Method Post -Uri $uri -Headers $script:headers -ContentType "application/json" -Verbose:$false -Body $body
@@ -301,7 +301,7 @@ function Update-DynamicFormSchema([System.Object[]]$formSchema, [string]$propert
         foreach ($item in $tmp) {
             if (($item.Name -eq $propertyName) -and ([string]::IsNullOrEmpty($item.Value) -eq $false)) {
                 $oldValue = $item.Value
-                $item.Value =  "$" + $propertyName + "_" + $script:dataSourcesGuids.Count
+                $item.Value = "$" + $propertyName + "_" + $script:dataSourcesGuids.Count
                 $script:dataSourcesGuids.add($item.Value, $oldValue)               
             } elseif (($item.Value -is [array]) -or ($item.Value -is [System.Management.Automation.PSCustomObject])) {
                 Update-DynamicFormSchema $($item.Value) $propertyName
@@ -343,7 +343,7 @@ $delegatedForm = (Get-HelloIDData -endpointUri "/api/v1/delegatedforms/$delegate
 $psScripts = [System.Collections.Generic.List[object]]@();
 $taskList = (Get-HelloIDData -endpointUri "/api/v1/automationtasks")
 $taskGUID = ($taskList | Where-Object { $_.objectGUID -eq $delegatedForm.delegatedFormGUID }).automationTaskGuid
-if(-not [string]::IsNullOrEmpty($taskGUID)) {
+if (-not [string]::IsNullOrEmpty($taskGUID)) {
     $delegatedFormTask = (Get-HelloIDData -endpointUri "/api/v1/automationtasks/$($taskGUID)")
 
     # Add Delegated Form Task to array of Powershell scripts (to find use of global variables)
@@ -378,11 +378,11 @@ foreach ($item in $script:dataSourcesGuids.GetEnumerator()) {
         }
 
         $dataSources.Add([PSCustomObject]@{ 
-            guid       = $item.Value; 
-            guidRef    = $item.Key; 
-            datasource = $dataSource; 
-            task       = $dsTask; 
-        })
+                guid       = $item.Value; 
+                guidRef    = $item.Key; 
+                datasource = $dataSource; 
+                task       = $dsTask; 
+            })
 
         switch ($dataSource.type) {
             # Static data source
@@ -447,13 +447,13 @@ foreach ($tmpScript in $psScripts) {
 #Build All-in-one PS script
 $PowershellScript += "<# Begin: HelloID Global Variables #>`n"
 foreach ($item in $globalVariables) {
-    if([string]::IsNullOrEmpty($item.value)) {
+    if ([string]::IsNullOrEmpty($item.value)) {
         $PowershellScript += "`$tmpValue = """" `n";
     } else {
         $PowershellScript += "`$tmpValue = @'`n" + ($item.value) + "`n'@ `n";
     }
-    
-    $PowershellScript += "Invoke-HelloIDGlobalVariable -Name ""$($item.Name)$(if($debug -eq $true) { $debugSuffix })"" -Value `$tmpValue -Secret ""$($item.secret)"" `n"
+    $PowershellScript += "`$tmpName = @'`n" + $($item.Name) + $(if ($debug -eq $true) { $debugSuffix }) + "`n'@ `n";
+    $PowershellScript += "Invoke-HelloIDGlobalVariable -Name `$tmpName -Value `$tmpValue -Secret ""$($item.secret)"" `n"
 }
 $PowershellScript += "<# End: HelloID Global Variables #>`n"
 $PowershellScript += "`n`n" 
@@ -466,7 +466,8 @@ foreach ($item in $dataSources) {
         1 {
             # Output method call Data source with parameters
             $PowershellScript += ($item.guidRef) + " = [PSCustomObject]@{} `n"
-            $PowershellScript += "Invoke-HelloIDDatasource -DatasourceName ""$($item.datasource.Name)"" -DatasourceType ""$($item.datasource.type)"" -DatasourceModel `$null -returnObject ([Ref]" + ($item.guidRef) + ") `n"
+            $PowershellScript += ($item.guidRef) + "_Name = @'`n" + $($item.datasource.Name) + "`n'@ `n";
+            $PowershellScript += "Invoke-HelloIDDatasource -DatasourceName " + ($item.guidRef) + "_Name -DatasourceType ""$($item.datasource.type)"" -DatasourceModel `$null -returnObject ([Ref]" + ($item.guidRef) + ") `n"
 
             break;
         }
@@ -478,8 +479,9 @@ foreach ($item in $dataSources) {
             $PowershellScript += "`$tmpModel = @'`n" + ($item.datasource.model | ConvertTo-Json -Compress) + "`n'@ `n";
 
             # Output method call Data source with parameters
-            $PowershellScript += ($item.guidRef) + " = [PSCustomObject]@{} `n"
-            $PowershellScript += "Invoke-HelloIDDatasource -DatasourceName ""$($item.datasource.Name)$(if($debug -eq $true) { $debugSuffix })"" -DatasourceType ""$($item.datasource.type)"" -DatasourceStaticValue `$tmpStaticValue -DatasourceModel `$tmpModel -returnObject ([Ref]" + ($item.guidRef) + ") `n"
+            $PowershellScript += ($item.guidRef) + " = [PSCustomObject]@{} `n"																																	  
+            $PowershellScript += ($item.guidRef) + "_Name = @'`n" + $($item.datasource.Name) + $(if ($debug -eq $true) { $debugSuffix }) + "`n'@ `n";
+            $PowershellScript += "Invoke-HelloIDDatasource -DatasourceName " + ($item.guidRef) + "_Name -DatasourceType ""$($item.datasource.type)"" -DatasourceStaticValue `$tmpStaticValue -DatasourceModel `$tmpModel -returnObject ([Ref]" + ($item.guidRef) + ") `n"
 
             break;
         }
@@ -487,12 +489,12 @@ foreach ($item in $dataSources) {
         # Task data source
         3 {
             # Output PS script in local variable
-            $PowershellScript += "`$tmpScript = @'`n" + (($item.task.variables | Where-Object {$_.name -eq "powerShellScript"}).Value) + "`n'@; `n";
+            $PowershellScript += "`$tmpScript = @'`n" + (($item.task.variables | Where-Object { $_.name -eq "powerShellScript" }).Value) + "`n'@; `n";
             $PowershellScript += "`n"            
             
             # Generate task variable mapping (required properties only and fixed typeConstraint value)
-            $tmpVariables = $item.task.variables | Where-Object {$_.name -ne "powerShellScript" -and $_.name -ne "powerShellScriptGuid" -and $_.name -ne "useTemplate"}
-            $tmpVariables = $tmpVariables | Select-Object Name, Value, Secret, @{name = "typeConstraint"; e = {"string"}}
+            $tmpVariables = $item.task.variables | Where-Object { $_.name -ne "powerShellScript" -and $_.name -ne "powerShellScriptGuid" -and $_.name -ne "useTemplate" }
+            $tmpVariables = $tmpVariables | Select-Object Name, Value, Secret, @{name = "typeConstraint"; e = { "string" } }
             
             # Output task variable mapping in local variable as JSON string
             $PowershellScript += "`$tmpVariables = @'`n" + ($tmpVariables | ConvertTo-Json -Compress) + "`n'@ `n";
@@ -500,7 +502,8 @@ foreach ($item in $dataSources) {
 
             # Output method call Automation task with parameters
             $PowershellScript += "`$taskGuid = [PSCustomObject]@{} `n"
-            $PowershellScript += "Invoke-HelloIDAutomationTask -TaskName ""$($item.Task.Name)$(if($debug -eq $true) { $debugSuffix })"" -UseTemplate """ + ($item.task.variables | Where-Object {$_.name -eq "useTemplate"}).Value + """ -AutomationContainer ""$($item.Task.automationContainer)"" -Variables `$tmpVariables -PowershellScript `$tmpScript -returnObject ([Ref]`$taskGuid) `n"
+            $PowershellScript += ($item.guidRef) + "_Name = @'`n" + $($item.Task.Name) + $(if ($debug -eq $true) { $debugSuffix }) + "`n'@ `n";
+            $PowershellScript += "Invoke-HelloIDAutomationTask -TaskName " + ($item.guidRef) + "_Name -UseTemplate """ + ($item.task.variables | Where-Object { $_.name -eq "useTemplate" }).Value + """ -AutomationContainer ""$($item.Task.automationContainer)"" -Variables `$tmpVariables -PowershellScript `$tmpScript -returnObject ([Ref]`$taskGuid) `n"
             $PowershellScript += "`n"
 
             # Output data source input variables and model definition
@@ -508,8 +511,9 @@ foreach ($item in $dataSources) {
             $PowershellScript += "`$tmpModel = @'`n" + ($item.datasource.model | ConvertTo-Json -Compress) + "`n'@ `n";
 
             # Output method call Data source with parameters
-            $PowershellScript += ($item.guidRef) + " = [PSCustomObject]@{} `n"
-            $PowershellScript += "Invoke-HelloIDDatasource -DatasourceName ""$($item.datasource.Name)$(if($debug -eq $true) { $debugSuffix })"" -DatasourceType ""$($item.datasource.type)"" -DatasourceInput `$tmpInput -DatasourceModel `$tmpModel -AutomationTaskGuid `$taskGuid -returnObject ([Ref]" + ($item.guidRef) + ") `n"
+            $PowershellScript += ($item.guidRef) + " = [PSCustomObject]@{} `n"																																  
+            $PowershellScript += ($item.guidRef) + "_Name = @'`n" + $($item.datasource.Name) + $(if ($debug -eq $true) { $debugSuffix }) + "`n'@ `n";
+            $PowershellScript += "Invoke-HelloIDDatasource -DatasourceName " + ($item.guidRef) + "_Name -DatasourceType ""$($item.datasource.type)"" -DatasourceInput `$tmpInput -DatasourceModel `$tmpModel -AutomationTaskGuid `$taskGuid -returnObject ([Ref]" + ($item.guidRef) + ") `n"
 
             break;
         }
@@ -523,7 +527,8 @@ foreach ($item in $dataSources) {
 
             # Output method call Data source with parameters
             $PowershellScript += ($item.guidRef) + " = [PSCustomObject]@{} `n"
-            $PowershellScript += "Invoke-HelloIDDatasource -DatasourceName ""$($item.datasource.Name)$(if($debug -eq $true) { $debugSuffix })"" -DatasourceType ""$($item.datasource.type)"" -DatasourceInput `$tmpInput -DatasourcePsScript `$tmpPsScript -DatasourceModel `$tmpModel -returnObject ([Ref]" + ($item.guidRef) + ") `n"
+            $PowershellScript += ($item.guidRef) + "_Name = @'`n" + $($item.datasource.Name) + $(if ($debug -eq $true) { $debugSuffix }) + "`n'@ `n";
+            $PowershellScript += "Invoke-HelloIDDatasource -DatasourceName " + ($item.guidRef) + "_Name -DatasourceType ""$($item.datasource.type)"" -DatasourceInput `$tmpInput -DatasourcePsScript `$tmpPsScript -DatasourceModel `$tmpModel -returnObject ([Ref]" + ($item.guidRef) + ") `n"
 
             break;
         }
@@ -532,10 +537,11 @@ foreach ($item in $dataSources) {
 }
 $PowershellScript += "<# End: HelloID Data sources #>`n`n"
 $PowershellScript += "<# Begin: Dynamic Form ""$($dynamicForm.name)"" #>`n"
-$PowershellScript += "`$tmpSchema = @""`n" + ((($dynamicForm.formSchema | ConvertTo-Json -Depth 100 -Compress) -replace '\[\\"','\[\\"') -replace '\\"]','\\"]')  + "`n""@ `n";
+$PowershellScript += "`$tmpSchema = @""`n" + ((($dynamicForm.formSchema | ConvertTo-Json -Depth 100 -Compress) -replace '\[\\"', '\[\\"') -replace '\\"]', '\\"]') + "`n""@ `n";
 $PowershellScript += "`n"
 $PowershellScript += "`$dynamicFormGuid = [PSCustomObject]@{} `n"
-$PowershellScript += "Invoke-HelloIDDynamicForm -FormName ""$($dynamicForm.name)$(if($debug -eq $true) { $debugSuffix })"" -FormSchema `$tmpSchema  -returnObject ([Ref]`$dynamicFormGuid) `n"
+$PowershellScript += "`$dynamicFormName = @'`n" + $($dynamicForm.name) + $(if ($debug -eq $true) { $debugSuffix }) + "`n'@ `n";
+$PowershellScript += "Invoke-HelloIDDynamicForm -FormName `$dynamicFormName -FormSchema `$tmpSchema  -returnObject ([Ref]`$dynamicFormGuid) `n"
 $PowershellScript += "<# END: Dynamic Form #>`n`n"
 
 $PowershellScript += "<# Begin: Delegated Form Access Groups and Categories #>`n"
@@ -585,7 +591,8 @@ $PowershellScript += "`n<# End: Delegated Form Access Groups and Categories #>`n
 
 $PowershellScript += "`n<# Begin: Delegated Form #>`n"
 $PowershellScript += "`$delegatedFormRef = [PSCustomObject]@{guid = `$null; created = `$null} `n"
-$PowershellScript += "Invoke-HelloIDDelegatedForm -DelegatedFormName ""$($delegatedForm.name)$(if($debug -eq $true) { $debugSuffix })"" -DynamicFormGuid `$dynamicFormGuid -AccessGroups `$delegatedFormAccessGroupGuids -Categories `$delegatedFormCategoryGuids -UseFaIcon ""$($delegatedForm.useFaIcon)"" -FaIcon ""$($delegatedForm.faIcon)"" -returnObject ([Ref]`$delegatedFormRef) `n"
+$PowershellScript += "`$delegatedFormName = @'`n" + ($delegatedForm.name) + $(if ($debug -eq $true) { $debugSuffix }) + "`n'@`n"
+$PowershellScript += "Invoke-HelloIDDelegatedForm -DelegatedFormName `$delegatedFormName -DynamicFormGuid `$dynamicFormGuid -AccessGroups `$delegatedFormAccessGroupGuids -Categories `$delegatedFormCategoryGuids -UseFaIcon ""$($delegatedForm.useFaIcon)"" -FaIcon ""$($delegatedForm.faIcon)"" -returnObject ([Ref]`$delegatedFormRef) `n"
 $PowershellScript += "<# End: Delegated Form #>`n"
 
 
@@ -597,8 +604,8 @@ $PowershellScript += "`t`$tmpScript = @'`n" + ($($delegatedFormTask.variables | 
 $PowershellScript += "`n"            
 
 # Generate DelegatedForm task variable mapping (required properties only and fixed typeConstraint value)
-$tmpVariables = $delegatedFormTask.variables | Where-Object {$_.name -ne "powerShellScript" -and $_.name -ne "powerShellScriptGuid" -and $_.name -ne "useTemplate"}
-$tmpVariables = $tmpVariables | Select-Object Name, Value, Secret, @{name = "typeConstraint"; e = {"string"}}
+$tmpVariables = $delegatedFormTask.variables | Where-Object { $_.name -ne "powerShellScript" -and $_.name -ne "powerShellScriptGuid" -and $_.name -ne "useTemplate" }
+$tmpVariables = $tmpVariables | Select-Object Name, Value, Secret, @{name = "typeConstraint"; e = { "string" } }
 
 # Output task variable mapping in local variable as JSON string
 $PowershellScript += "`t`$tmpVariables = @'`n" + ($tmpVariables | ConvertTo-Json -Compress) + "`n'@ `n";
@@ -606,9 +613,10 @@ $PowershellScript += "`n"
 
 # Output method call DelegatedForm Automation task with parameters
 $PowershellScript += "`t`$delegatedFormTaskGuid = [PSCustomObject]@{} `n"
-$PowershellScript += "`tInvoke-HelloIDAutomationTask -TaskName ""$($delegatedFormTask.Name)$(if($debug -eq $true) { $debugSuffix })"" -UseTemplate """ + ($delegatedFormTask.variables | Where-Object {$_.name -eq "useTemplate"}).Value + """ -AutomationContainer ""$($delegatedFormTask.automationContainer)"" -Variables `$tmpVariables -PowershellScript `$tmpScript -ObjectGuid `$delegatedFormRef.guid -ForceCreateTask `$true -returnObject ([Ref]`$delegatedFormTaskGuid) `n"
+$PowershellScript += "`$delegatedFormTaskName = @'`n" + ($delegatedFormTask.Name) + $(if ($debug -eq $true) { $debugSuffix }) + "`n'@`n"
+$PowershellScript += "`tInvoke-HelloIDAutomationTask -TaskName `$delegatedFormTaskName -UseTemplate """ + ($delegatedFormTask.variables | Where-Object { $_.name -eq "useTemplate" }).Value + """ -AutomationContainer ""$($delegatedFormTask.automationContainer)"" -Variables `$tmpVariables -PowershellScript `$tmpScript -ObjectGuid `$delegatedFormRef.guid -ForceCreateTask `$true -returnObject ([Ref]`$delegatedFormTaskGuid) `n"
 $PowershellScript += "} else {`n"
-$PowershellScript += "`tWrite-ColorOutput Yellow ""Delegated form '$($delegatedForm.name)' already exists. Nothing to do with the Delegated Form task..."" `n"
+$PowershellScript += "`tWrite-ColorOutput Yellow ""Delegated form '`$delegatedFormName' already exists. Nothing to do with the Delegated Form task..."" `n"
 $PowershellScript += "}`n"
 $PowershellScript += "<# End: Delegated Form Task #>"
 
