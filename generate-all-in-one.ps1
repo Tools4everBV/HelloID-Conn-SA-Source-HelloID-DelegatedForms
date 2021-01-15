@@ -342,9 +342,9 @@ $delegatedForm = (Get-HelloIDData -endpointUri "/api/v1/delegatedforms/$delegate
 #DelegatedForm Automation Task
 $psScripts = [System.Collections.Generic.List[object]]@();
 $taskList = (Get-HelloIDData -endpointUri "/api/v1/automationtasks")
-$taskGUID = ($taskList | Where-Object { $_.objectGUID -eq $delegatedForm.delegatedFormGUID }).automationTaskGuid
-if (-not [string]::IsNullOrEmpty($taskGUID)) {
-    $delegatedFormTask = (Get-HelloIDData -endpointUri "/api/v1/automationtasks/$($taskGUID)")
+$delegatedFormTaskGUID = ($taskList | Where-Object { $_.objectGUID -eq $delegatedForm.delegatedFormGUID }).automationTaskGuid
+if (-not [string]::IsNullOrEmpty($delegatedFormTaskGUID)) {
+    $delegatedFormTask = (Get-HelloIDData -endpointUri "/api/v1/automationtasks/$($delegatedFormTaskGUID)")
 
     # Add Delegated Form Task to array of Powershell scripts (to find use of global variables)
     $tmpScript = $($delegatedFormTask.variables | Where-Object { $_.name -eq "powershellscript" }).Value;
@@ -596,28 +596,30 @@ $PowershellScript += "Invoke-HelloIDDelegatedForm -DelegatedFormName `$delegated
 $PowershellScript += "<# End: Delegated Form #>`n"
 
 
-$PowershellScript += "`n<# Begin: Delegated Form Task #>`n"
-$PowershellScript += "if(`$delegatedFormRef.created -eq `$true) { `n"     
+if (-not [string]::IsNullOrEmpty($delegatedFormTaskGUID)) {
+    $PowershellScript += "`n<# Begin: Delegated Form Task #>`n"
+    $PowershellScript += "if(`$delegatedFormRef.created -eq `$true) { `n"     
 
-# Output PS script in local variable
-$PowershellScript += "`t`$tmpScript = @'`n" + ($($delegatedFormTask.variables | Where-Object { $_.name -eq "powershellscript" }).Value) + "`n'@; `n";
-$PowershellScript += "`n"            
+    # Output PS script in local variable
+    $PowershellScript += "`t`$tmpScript = @'`n" + ($($delegatedFormTask.variables | Where-Object { $_.name -eq "powershellscript" }).Value) + "`n'@; `n";
+    $PowershellScript += "`n"            
 
-# Generate DelegatedForm task variable mapping (required properties only and fixed typeConstraint value)
-$tmpVariables = $delegatedFormTask.variables | Where-Object { $_.name -ne "powerShellScript" -and $_.name -ne "powerShellScriptGuid" -and $_.name -ne "useTemplate" }
-$tmpVariables = $tmpVariables | Select-Object Name, Value, Secret, @{name = "typeConstraint"; e = { "string" } }
+    # Generate DelegatedForm task variable mapping (required properties only and fixed typeConstraint value)
+    $tmpVariables = $delegatedFormTask.variables | Where-Object { $_.name -ne "powerShellScript" -and $_.name -ne "powerShellScriptGuid" -and $_.name -ne "useTemplate" }
+    $tmpVariables = $tmpVariables | Select-Object Name, Value, Secret, @{name = "typeConstraint"; e = { "string" } }
 
-# Output task variable mapping in local variable as JSON string
-$PowershellScript += "`t`$tmpVariables = @'`n" + ($tmpVariables | ConvertTo-Json -Compress) + "`n'@ `n";
-$PowershellScript += "`n"
+    # Output task variable mapping in local variable as JSON string
+    $PowershellScript += "`t`$tmpVariables = @'`n" + ($tmpVariables | ConvertTo-Json -Compress) + "`n'@ `n";
+    $PowershellScript += "`n"
 
-# Output method call DelegatedForm Automation task with parameters
-$PowershellScript += "`t`$delegatedFormTaskGuid = [PSCustomObject]@{} `n"
-$PowershellScript += "`$delegatedFormTaskName = @'`n" + ($delegatedFormTask.Name) + $(if ($debug -eq $true) { $debugSuffix }) + "`n'@`n"
-$PowershellScript += "`tInvoke-HelloIDAutomationTask -TaskName `$delegatedFormTaskName -UseTemplate """ + ($delegatedFormTask.variables | Where-Object { $_.name -eq "useTemplate" }).Value + """ -AutomationContainer ""$($delegatedFormTask.automationContainer)"" -Variables `$tmpVariables -PowershellScript `$tmpScript -ObjectGuid `$delegatedFormRef.guid -ForceCreateTask `$true -returnObject ([Ref]`$delegatedFormTaskGuid) `n"
-$PowershellScript += "} else {`n"
-$PowershellScript += "`tWrite-ColorOutput Yellow ""Delegated form '`$delegatedFormName' already exists. Nothing to do with the Delegated Form task..."" `n"
-$PowershellScript += "}`n"
-$PowershellScript += "<# End: Delegated Form Task #>"
+    # Output method call DelegatedForm Automation task with parameters
+    $PowershellScript += "`t`$delegatedFormTaskGuid = [PSCustomObject]@{} `n"
+    $PowershellScript += "`$delegatedFormTaskName = @'`n" + ($delegatedFormTask.Name) + $(if ($debug -eq $true) { $debugSuffix }) + "`n'@`n"
+    $PowershellScript += "`tInvoke-HelloIDAutomationTask -TaskName `$delegatedFormTaskName -UseTemplate """ + ($delegatedFormTask.variables | Where-Object { $_.name -eq "useTemplate" }).Value + """ -AutomationContainer ""$($delegatedFormTask.automationContainer)"" -Variables `$tmpVariables -PowershellScript `$tmpScript -ObjectGuid `$delegatedFormRef.guid -ForceCreateTask `$true -returnObject ([Ref]`$delegatedFormTaskGuid) `n"
+    $PowershellScript += "} else {`n"
+    $PowershellScript += "`tWrite-ColorOutput Yellow ""Delegated form '`$delegatedFormName' already exists. Nothing to do with the Delegated Form task..."" `n"
+    $PowershellScript += "}`n"
+    $PowershellScript += "<# End: Delegated Form Task #>"
+}
 
 set-content -LiteralPath "$allInOneFolder\createform.ps1" -Value $PowershellScript -Force
