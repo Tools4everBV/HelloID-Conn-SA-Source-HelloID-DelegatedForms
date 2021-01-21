@@ -537,7 +537,7 @@ foreach ($item in $dataSources) {
 }
 $PowershellScript += "<# End: HelloID Data sources #>`n`n"
 $PowershellScript += "<# Begin: Dynamic Form ""$($dynamicForm.name)"" #>`n"
-$PowershellScript += "`$tmpSchema = @""`n" + ((($dynamicForm.formSchema | ConvertTo-Json -Depth 100 -Compress) -replace '\[\\"', '\[\\"') -replace '\\"]', '\\"]') + "`n""@ `n";
+$PowershellScript += "`$tmpSchema = @""`n" + ($dynamicForm.formSchema | ConvertTo-Json -Depth 100 -Compress) + "`n""@ `n";
 $PowershellScript += "`n"
 $PowershellScript += "`$dynamicFormGuid = [PSCustomObject]@{} `n"
 $PowershellScript += "`$dynamicFormName = @'`n" + $($dynamicForm.name) + $(if ($debug -eq $true) { $debugSuffix }) + "`n'@ `n";
