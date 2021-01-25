@@ -78,7 +78,7 @@ function Invoke-HelloIDGlobalVariable {
                 secret   = $Secret;
                 ItemType = 0;
             }    
-            $body = $body | ConvertTo-Json
+            $body = ConvertTo-Json -InputObject $body
     
             $uri = ($script:PortalBaseUrl + "api/v1/automation/variable")
             $response = Invoke-RestMethod -Method Post -Uri $uri -Headers $script:headers -ContentType "application/json" -Verbose:$false -Body $body
@@ -122,7 +122,7 @@ function Invoke-HelloIDAutomationTask {
                 objectGuid          = $ObjectGuid;
                 variables           = [Object[]]($Variables | ConvertFrom-Json);
             }
-            $body = $body | ConvertTo-Json
+            $body = ConvertTo-Json -InputObject $body
     
             $uri = ($script:PortalBaseUrl +"api/v1/automationtasks/powershell")
             $response = Invoke-RestMethod -Method Post -Uri $uri -Headers $script:headers -ContentType "application/json" -Verbose:$false -Body $body
@@ -175,7 +175,7 @@ function Invoke-HelloIDDatasource {
                 script             = $DatasourcePsScript;
                 input              = [Object[]]($DatasourceInput | ConvertFrom-Json);
             }
-            $body = $body | ConvertTo-Json
+            $body = ConvertTo-Json -InputObject $body
       
             $uri = ($script:PortalBaseUrl +"api/v1/datasource")
             $response = Invoke-RestMethod -Method Post -Uri $uri -Headers $script:headers -ContentType "application/json" -Verbose:$false -Body $body
@@ -215,7 +215,7 @@ function Invoke-HelloIDDynamicForm {
                 Name       = $FormName;
                 FormSchema = [Object[]]($FormSchema | ConvertFrom-Json)
             }
-            $body = $body | ConvertTo-Json -Depth 100
+            $body = ConvertTo-Json -InputObject $body -Depth 100
     
             $uri = ($script:PortalBaseUrl +"api/v1/forms")
             $response = Invoke-RestMethod -Method Post -Uri $uri -Headers $script:headers -ContentType "application/json" -Verbose:$false -Body $body
@@ -264,7 +264,7 @@ function Invoke-HelloIDDelegatedForm {
                 useFaIcon       = $UseFaIcon;
                 faIcon          = $FaIcon;
             }    
-            $body = $body | ConvertTo-Json
+            $body = ConvertTo-Json -InputObject $body
     
             $uri = ($script:PortalBaseUrl +"api/v1/delegatedforms")
             $response = Invoke-RestMethod -Method Post -Uri $uri -Headers $script:headers -ContentType "application/json" -Verbose:$false -Body $body
@@ -364,7 +364,7 @@ $allGlobalVariables = (Get-HelloIDData -endpointUri "/api/v1/automation/variable
 #Get all data source GUIDs used in Dynamic Form
 $script:dataSourcesGuids = @{}
 Update-DynamicFormSchema $($dynamicForm.formSchema) "dataSourceGuid"
-set-content -LiteralPath "$manualResourceFolder\dynamicform.json" -Value ($dynamicForm.formSchema | ConvertTo-Json -Depth 100) -Force
+set-content -LiteralPath "$manualResourceFolder\dynamicform.json" -Value (ConvertTo-Json -InputObject $dynamicForm.formSchema -Depth 100) -Force
 
 #Data Sources
 $dataSources = [System.Collections.Generic.List[object]]@();
@@ -389,8 +389,8 @@ foreach ($item in $script:dataSourcesGuids.GetEnumerator()) {
             2 {
                 # Export Data source to Manual resource folder
                 $tmpFileName = "$manualResourceFolder\[static-datasource]_$($dataSource.name)"
-                set-content -LiteralPath "$tmpFileName.json" -Value ($datasource.value | ConvertTo-Json) -Force
-                set-content -LiteralPath "$tmpFileName.model.json" -Value ($datasource.model | ConvertTo-Json) -Force
+                set-content -LiteralPath "$tmpFileName.json" -Value (ConvertTo-Json -InputObject $datasource.value) -Force
+                set-content -LiteralPath "$tmpFileName.model.json" -Value (ConvertTo-Json -InputObject $datasource.model) -Force
                 break;
             }
 
@@ -403,8 +403,8 @@ foreach ($item in $script:dataSourcesGuids.GetEnumerator()) {
                 # Export Data source to Manual resource folder
                 $tmpFileName = "$manualResourceFolder\[task-datasource]_$($dataSource.name)"
                 set-content -LiteralPath "$tmpFileName.ps1" -Value $tmpScript -Force
-                set-content -LiteralPath "$tmpFileName.model.json" -Value ($datasource.model | ConvertTo-Json) -Force
-                set-content -LiteralPath "$tmpFileName.inputs.json" -Value ($datasource.input | ConvertTo-Json) -Force
+                set-content -LiteralPath "$tmpFileName.model.json" -Value (ConvertTo-Json -InputObject $datasource.model) -Force
+                set-content -LiteralPath "$tmpFileName.inputs.json" -Value (ConvertTo-Json -InputObject $datasource.input) -Force
                 break; 
             }
             
@@ -417,8 +417,8 @@ foreach ($item in $script:dataSourcesGuids.GetEnumerator()) {
                 # Export Data source to Manual resource folder
                 $tmpFileName = "$manualResourceFolder\[powershell-datasource]_$($dataSource.name)"
                 set-content -LiteralPath "$tmpFileName.ps1" -Value $tmpScript -Force
-                set-content -LiteralPath "$tmpFileName.model.json" -Value ($datasource.model | ConvertTo-Json) -Force
-                set-content -LiteralPath "$tmpFileName.inputs.json" -Value ($datasource.input | ConvertTo-Json) -Force
+                set-content -LiteralPath "$tmpFileName.model.json" -Value (ConvertTo-Json -InputObject $datasource.model) -Force
+                set-content -LiteralPath "$tmpFileName.inputs.json" -Value (ConvertTo-Json -InputObject $datasource.input) -Force
                 break;
             }
         }
@@ -475,8 +475,8 @@ foreach ($item in $dataSources) {
         # Static data source
         2 {
             # Output data source JSON data schema and model definition
-            $PowershellScript += "`$tmpStaticValue = @'`n" + ($item.datasource.value | ConvertTo-Json -Compress) + "`n'@ `n";
-            $PowershellScript += "`$tmpModel = @'`n" + ($item.datasource.model | ConvertTo-Json -Compress) + "`n'@ `n";
+            $PowershellScript += "`$tmpStaticValue = @'`n" + (ConvertTo-Json -InputObject $item.datasource.value -Compress) + "`n'@ `n";
+            $PowershellScript += "`$tmpModel = @'`n" + (ConvertTo-Json -InputObject $item.datasource.model -Compress) + "`n'@ `n";
 
             # Output method call Data source with parameters
             $PowershellScript += ($item.guidRef) + " = [PSCustomObject]@{} `n"																																	  
@@ -497,7 +497,7 @@ foreach ($item in $dataSources) {
             $tmpVariables = $tmpVariables | Select-Object Name, Value, Secret, @{name = "typeConstraint"; e = { "string" } }
             
             # Output task variable mapping in local variable as JSON string
-            $PowershellScript += "`$tmpVariables = @'`n" + ($tmpVariables | ConvertTo-Json -Compress) + "`n'@ `n";
+            $PowershellScript += "`$tmpVariables = @'`n" + (ConvertTo-Json -InputObject $tmpVariables -Compress) + "`n'@ `n";
             $PowershellScript += "`n"
 
             # Output method call Automation task with parameters
@@ -507,8 +507,8 @@ foreach ($item in $dataSources) {
             $PowershellScript += "`n"
 
             # Output data source input variables and model definition
-            $PowershellScript += "`$tmpInput = @'`n" + ($item.datasource.input | ConvertTo-Json -Compress) + "`n'@ `n";
-            $PowershellScript += "`$tmpModel = @'`n" + ($item.datasource.model | ConvertTo-Json -Compress) + "`n'@ `n";
+            $PowershellScript += "`$tmpInput = @'`n" + (ConvertTo-Json -InputObject $item.datasource.input -Compress) + "`n'@ `n";
+            $PowershellScript += "`$tmpModel = @'`n" + (ConvertTo-Json -InputObject $item.datasource.model -Compress) + "`n'@ `n";
 
             # Output method call Data source with parameters
             $PowershellScript += ($item.guidRef) + " = [PSCustomObject]@{} `n"																																  
@@ -522,8 +522,8 @@ foreach ($item in $dataSources) {
         4 {
             # Output data source JSON data schema, model definition and input variables
             $PowershellScript += "`$tmpPsScript = @'`n" + $item.datasource.script + "`n'@ `n";
-            $PowershellScript += "`$tmpModel = @'`n" + ($item.datasource.model | ConvertTo-Json -Compress) + "`n'@ `n";
-            $PowershellScript += "`$tmpInput = @'`n" + ($item.datasource.input | ConvertTo-Json -Compress) + "`n'@ `n";
+            $PowershellScript += "`$tmpModel = @'`n" + (ConvertTo-Json -InputObject $item.datasource.model -Compress) + "`n'@ `n";
+            $PowershellScript += "`$tmpInput = @'`n" + (ConvertTo-Json -InputObject $item.datasource.input -Compress) + "`n'@ `n";
 
             # Output method call Data source with parameters
             $PowershellScript += ($item.guidRef) + " = [PSCustomObject]@{} `n"
@@ -537,7 +537,7 @@ foreach ($item in $dataSources) {
 }
 $PowershellScript += "<# End: HelloID Data sources #>`n`n"
 $PowershellScript += "<# Begin: Dynamic Form ""$($dynamicForm.name)"" #>`n"
-$PowershellScript += "`$tmpSchema = @""`n" + ($dynamicForm.formSchema | ConvertTo-Json -Depth 100 -Compress) + "`n""@ `n";
+$PowershellScript += "`$tmpSchema = @""`n" + (ConvertTo-Json -InputObject $dynamicForm.formSchema -Depth 100 -Compress) + "`n""@ `n";
 $PowershellScript += "`n"
 $PowershellScript += "`$dynamicFormGuid = [PSCustomObject]@{} `n"
 $PowershellScript += "`$dynamicFormName = @'`n" + $($dynamicForm.name) + $(if ($debug -eq $true) { $debugSuffix }) + "`n'@ `n";
@@ -559,7 +559,7 @@ foreach($group in $delegatedFormAccessGroupNames) {
         Write-ColorOutput Red "HelloID (access)group '$group', message: $_"
     }
 }
-$delegatedFormAccessGroupGuids = ($delegatedFormAccessGroupGuids | ConvertTo-Json -Compress)
+$delegatedFormAccessGroupGuids = (ConvertTo-Json -InputObject $delegatedFormAccessGroupGuids -Compress)
 
 $delegatedFormCategoryGuids = @()
 foreach($category in $delegatedFormCategories) {
@@ -575,7 +575,7 @@ foreach($category in $delegatedFormCategories) {
         $body = @{
             name = @{"en" = $category};
         }
-        $body = $body | ConvertTo-Json
+        $body = ConvertTo-Json -InputObject $body
 
         $uri = ($script:PortalBaseUrl +"api/v1/delegatedformcategories")
         $response = Invoke-RestMethod -Method Post -Uri $uri -Headers $script:headers -ContentType "application/json" -Verbose:$false -Body $body
@@ -585,7 +585,7 @@ foreach($category in $delegatedFormCategories) {
         Write-ColorOutput Green "HelloID Delegated Form category '$category' successfully created: $tmpGuid"
     }
 }
-$delegatedFormCategoryGuids = ($delegatedFormCategoryGuids | ConvertTo-Json -Compress)
+$delegatedFormCategoryGuids = (ConvertTo-Json -InputObject $delegatedFormCategoryGuids -Compress)
 '@
 $PowershellScript += "`n<# End: Delegated Form Access Groups and Categories #>`n"
 
@@ -609,7 +609,7 @@ if (-not [string]::IsNullOrEmpty($delegatedFormTaskGUID)) {
     $tmpVariables = $tmpVariables | Select-Object Name, Value, Secret, @{name = "typeConstraint"; e = { "string" } }
 
     # Output task variable mapping in local variable as JSON string
-    $PowershellScript += "`t`$tmpVariables = @'`n" + ($tmpVariables | ConvertTo-Json -Compress) + "`n'@ `n";
+    $PowershellScript += "`t`$tmpVariables = @'`n" + (ConvertTo-Json -InputObject $tmpVariables -Compress) + "`n'@ `n";
     $PowershellScript += "`n"
 
     # Output method call DelegatedForm Automation task with parameters
