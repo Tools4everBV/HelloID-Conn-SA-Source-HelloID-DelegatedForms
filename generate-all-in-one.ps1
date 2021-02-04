@@ -34,7 +34,7 @@ $PowershellScript = @'
 $script:PortalBaseUrl = "https://CUSTOMER.helloid.com"
 $apiKey = "API_KEY"
 $apiSecret = "API_SECRET"
-$delegatedFormAccessGroupNames = @("Users", "HID_administrators")
+$delegatedFormAccessGroupNames = @("Users", "HID_administrators") #Only unique names are supported
 $delegatedFormCategories = @("Active Directory", "User Management")
 
 # Create authorization headers with HelloID API key
@@ -559,7 +559,7 @@ foreach($group in $delegatedFormAccessGroupNames) {
         Write-ColorOutput Red "HelloID (access)group '$group', message: $_"
     }
 }
-$delegatedFormAccessGroupGuids = (ConvertTo-Json -InputObject $delegatedFormAccessGroupGuids -Compress)
+$delegatedFormAccessGroupGuids = ($delegatedFormAccessGroupGuids | Select-Object -Unique | ConvertTo-Json -Compress)
 
 $delegatedFormCategoryGuids = @()
 foreach($category in $delegatedFormCategories) {
