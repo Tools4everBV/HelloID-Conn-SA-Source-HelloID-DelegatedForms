@@ -41,9 +41,12 @@ The PowerShell script "generate-all-in-one.ps1" contains a complete PowerShell s
   <tr><td>$apiKey</td><td>*****</td><td>API Key value of your own environment</td></tr>
   <tr><td>$apiSecret</td><td>*****</td><td>API secret value of your own environment</td></tr>
   <tr><td>$delegatedFormName</td><td>AD Account - Create</td><td>Name of the Delegated Form you want to export</td></tr>
+  <tr><td>$useManualDelegatedFormCategories</td><td>$true</td><td>$true means use manual categories listed below. $false means receive current categories from DelegatedForm</td></tr>
+  <tr><td>$manualDelegatedFormCategories</td><td>@("Active Directory", "User Management")</td><td>Array of Delegated Form categories to be connected to the newly generated Delegated Form. Only unique names are supported. Categories will be created if they don't exists</td></tr>
+  <tr><td>$defaultDelegatedFormAccessGroupNames</td><td>@("Users", "HID_administrators")</td><td>Array of HelloID Group names to be connected as AccessGroups. Only unique names are supported. Group names have to exist.</td></tr>
   <tr><td>$debug</td><td>$false</td><td>Boolean value indicating debug mode. In Debug mode the HelloID resource names will get an suffix in order to "duplicate" the Delegated Form in the same environment (for testing)</td></tr>
   <tr><td>$debugSuffix</td><td>_tmp</td><td>Value of the name suffix that will be used for all HelloID resources in debug modus.</td></tr>
-  <tr><td>$rootFolder</td><td>C:\HelloID\Delegated Forms</td><td>Local folder path for exporting files</td></tr>
+  <tr><td>$rootExportFolder</td><td>C:\HelloID\Delegated Forms</td><td>Local folder path for exporting files</td></tr>
 
 </table>
 
@@ -66,6 +69,7 @@ The generated all-in-one PowerShell script includes the following resources
    * The data source references in the JSON data structure are dynamicly updated to your own environment
 5. Configured Access Groups are assigned to the Delegated form
 6. Configured Categories are assigned to the Delegated form
+   * Manual configurated categories can be used or current categories connected to the referred Delegated Form
    * Categories are created if they don't exist in the target HelloID environment
 
 
@@ -74,4 +78,3 @@ The generated all-in-one PowerShell script includes the following resources
  * Only script variable mappings of type "string" are supported
  * Powershel script template (use template instead of inline Powershell script) is not supported
  * Delegate Form Access Groups are not exported but are hardcoded in the generated script (you need to update them manually)
- * Delegate Form Categories are not exported but are hardcoded in the generated script (you need to update them manually)
