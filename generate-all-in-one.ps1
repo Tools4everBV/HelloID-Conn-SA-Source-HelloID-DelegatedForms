@@ -3,9 +3,12 @@ $script:PortalBaseUrl = "https:/CUSTOMER.helloid.com"
 $apiKey = "API_KEY"
 $apiSecret = "API_SECRET"
 $delegatedFormName = "<DELEGATED FORM NAME>"
+$useManualDelegatedFormCategories = $true #$true means use manual categories listed below. $false means receive current categories from DelegatedForm
+$manualDelegatedFormCategories = @("Active Directory", "User Management") #Only unique names are supported. Categories will be created if not exists
+$defaultDelegatedFormAccessGroupNames = @("Users", "HID_administrators") #Only unique names are supported. Groups must exist!
 $debug = $false #default value: $false
 $debugSuffix = "_tmp" #the suffix will be added to all HelloID resource names to generate a duplicate form with different resource names
-$rootFolder = "<local path>" #example: C:\HelloID\Delegated Forms
+$rootExportFolder = "C:\HelloID\Delegated Forms" #example: C:\HelloID\Delegated Forms
 
 
 # Delegated Form export folders
@@ -13,9 +16,9 @@ $subfolder = $delegatedFormName -replace [regex]::escape('('), '['
 $subfolder = $subfolder -replace [regex]::escape(')'), ']'
 $subfolder = $subfolder -replace [regex]'[^[\]a-zA-Z0-9_ -]', ''
 $subfolder = $subfolder.Trim("\")
-$rootFolder = $rootFolder.Trim("\")
-$allInOneFolder = "$rootFolder\$subfolder\All-in-one setup"
-$manualResourceFolder = "$rootFolder\$subfolder\Manual resources"
+$rootExportFolder = $rootExportFolder.Trim("\")
+$allInOneFolder = "$rootExportFolder\$subfolder\All-in-one setup"
+$manualResourceFolder = "$rootExportFolder\$subfolder\Manual resources"
 $null = New-Item -ItemType Directory -Force -Path $allInOneFolder
 $null = New-Item -ItemType Directory -Force -Path $manualResourceFolder
 
@@ -29,14 +32,172 @@ $script:headers = @{"authorization" = $Key }
 # Define specific endpoint URI
 $script:PortalBaseUrl = $script:PortalBaseUrl.trim("/") + "/"
 
+
+function Update-DynamicFormSchema([System.Object[]]$formSchema, [string]$propertyName) {
+    for ($i = 0; $i -lt $formSchema.Length; $i++) {
+        $tmp = $($formSchema[$i]).psobject.Members | where-object membertype -like 'noteproperty'
+    
+        foreach ($item in $tmp) {
+            if (($item.Name -eq $propertyName) -and ([string]::IsNullOrEmpty($item.Value) -eq $false)) {
+                $oldValue = $item.Value
+                $item.Value = "$" + $propertyName + "_" + $script:dataSourcesGuids.Count
+                $script:dataSourcesGuids.add($item.Value, $oldValue)               
+            } elseif (($item.Value -is [array]) -or ($item.Value -is [System.Management.Automation.PSCustomObject])) {
+                Update-DynamicFormSchema $($item.Value) $propertyName
+            }
+        }
+    }
+}
+
+function Get-HelloIDData([string]$endpointUri) {
+    $take = 1000;   
+    $skip = 0;
+     
+    $results = [System.Collections.Generic.List[object]]@();
+    $paged = $true;
+    while ($paged) {
+        $uri = "$($script:PortalBaseUrl)$($endpointUri)?take=$($take)&skip=$($skip)";
+        $response = (Invoke-RestMethod -Method GET -Uri $uri -Headers $script:headers -ContentType 'application/json' -TimeoutSec 60)
+        if ([bool]($response.PSobject.Properties.name -eq "data")) { $response = $response.data }
+        if ($response.count -lt $take) {
+            $paged = $false;
+        } else {
+            $skip += $take;
+        }
+           
+        if ($response -is [array]) {
+            $results.AddRange($response);
+        } else {
+            $results.Add($response);
+        }
+    }
+    return $results;
+}
+
+
+#Delegated Form
+$delegatedForm = (Get-HelloIDData -endpointUri "/api/v1/delegatedforms/$delegatedFormName")
+
+#Delegated Form categories; use
+if(-not $useManualDelegatedFormCategories -eq $true) {
+    $tmpCategories = @();
+    $currentCategories = $delegatedForm.categoryGuids
+    
+    foreach($item in $currentCategories) {
+        $tmpCategory = (Get-HelloIDData -endpointUri "/api/v1/delegatedformcategories/$($item)")
+        $tmpCategories += $tmpCategory.name.en
+    }
+
+    if($tmpCategories.Count -gt 0) {
+        $delegatedFormCategories = $tmpCategories
+    } else {
+       # use default delegated form categories
+        $delegatedFormCategories = $manualDelegatedFormCategories 
+    }
+} else {
+    # use default delegated form categories
+    $delegatedFormCategories = $manualDelegatedFormCategories
+}
+
+#DelegatedForm Automation Task
+$psScripts = [System.Collections.Generic.List[object]]@();
+$taskList = (Get-HelloIDData -endpointUri "/api/v1/automationtasks")
+$delegatedFormTaskGUID = ($taskList | Where-Object { $_.objectGUID -eq $delegatedForm.delegatedFormGUID }).automationTaskGuid
+if (-not [string]::IsNullOrEmpty($delegatedFormTaskGUID)) {
+    $delegatedFormTask = (Get-HelloIDData -endpointUri "/api/v1/automationtasks/$($delegatedFormTaskGUID)")
+
+    # Add Delegated Form Task to array of Powershell scripts (to find use of global variables)
+    $tmpScript = $($delegatedFormTask.variables | Where-Object { $_.name -eq "powershellscript" }).Value;
+    $psScripts.Add($tmpScript)
+
+    # Export Delegated Form task to Manual Resource Folder
+    $tmpFileName = "$manualResourceFolder\[task]_$($delegatedFormTask.Name).ps1"
+    set-content -LiteralPath $tmpFileName -Value $tmpScript -Force
+}
+
+#DynamicForm
+$dynamicForm = (Get-HelloIDData -endpointUri "/api/v1/forms/$($delegatedForm.dynamicFormGUID)")
+
+#Get all global variables
+$allGlobalVariables = (Get-HelloIDData -endpointUri "/api/v1/automation/variables")
+
+#Get all data source GUIDs used in Dynamic Form
+$script:dataSourcesGuids = @{}
+Update-DynamicFormSchema $($dynamicForm.formSchema) "dataSourceGuid"
+set-content -LiteralPath "$manualResourceFolder\dynamicform.json" -Value (ConvertTo-Json -InputObject $dynamicForm.formSchema -Depth 100) -Force
+
+#Data Sources
+$dataSources = [System.Collections.Generic.List[object]]@();
+foreach ($item in $script:dataSourcesGuids.GetEnumerator()) {
+    try {
+        $dataSource = (Get-HelloIDData -endpointUri "/api/v1/datasource/$($item.Value)")
+        $dsTask = $null
+        
+        if ($dataSource.Type -eq 3 -and $dataSource.automationTaskGUID.Length -gt 0) {
+            $dsTask = (Get-HelloIDData -endpointUri "/api/v1/automationtasks/$($dataSource.automationTaskGUID)")
+        }
+
+        $dataSources.Add([PSCustomObject]@{ 
+                guid       = $item.Value; 
+                guidRef    = $item.Key; 
+                datasource = $dataSource; 
+                task       = $dsTask; 
+            })
+
+        switch ($dataSource.type) {
+            # Static data source
+            2 {
+                # Export Data source to Manual resource folder
+                $tmpFileName = "$manualResourceFolder\[static-datasource]_$($dataSource.name)"
+                set-content -LiteralPath "$tmpFileName.json" -Value (ConvertTo-Json -InputObject $datasource.value) -Force
+                set-content -LiteralPath "$tmpFileName.model.json" -Value (ConvertTo-Json -InputObject $datasource.model) -Force
+                break;
+            }
+
+            # Task data source
+            3 {
+                # Add Powershell script to array (to look for use of global variables)
+                $tmpScript = $($dsTask.variables | Where-Object { $_.name -eq "powershellscript" }).Value
+                $psScripts.Add($tmpScript)
+                
+                # Export Data source to Manual resource folder
+                $tmpFileName = "$manualResourceFolder\[task-datasource]_$($dataSource.name)"
+                set-content -LiteralPath "$tmpFileName.ps1" -Value $tmpScript -Force
+                set-content -LiteralPath "$tmpFileName.model.json" -Value (ConvertTo-Json -InputObject $datasource.model) -Force
+                set-content -LiteralPath "$tmpFileName.inputs.json" -Value (ConvertTo-Json -InputObject $datasource.input) -Force
+                break; 
+            }
+            
+            # Powershell data source
+            4 {
+                # Add Powershell script to array (to look for use of global variables)
+                $tmpScript = $dataSource.script
+                $psScripts.Add($tmpScript);
+
+                # Export Data source to Manual resource folder
+                $tmpFileName = "$manualResourceFolder\[powershell-datasource]_$($dataSource.name)"
+                set-content -LiteralPath "$tmpFileName.ps1" -Value $tmpScript -Force
+                set-content -LiteralPath "$tmpFileName.model.json" -Value (ConvertTo-Json -InputObject $datasource.model) -Force
+                set-content -LiteralPath "$tmpFileName.inputs.json" -Value (ConvertTo-Json -InputObject $datasource.input) -Force
+                break;
+            }
+        }
+    } catch {
+        Write-Error "Failed to get Datasource";
+    }
+}
+
+# default all-in-one script output
 $PowershellScript = @'
 #HelloID variables
 $script:PortalBaseUrl = "https://CUSTOMER.helloid.com"
 $apiKey = "API_KEY"
 $apiSecret = "API_SECRET"
-$delegatedFormAccessGroupNames = @("Users", "HID_administrators") #Only unique names are supported
-$delegatedFormCategories = @("Active Directory", "User Management")
-
+'@
+$PowershellScript += "`n`$delegatedFormAccessGroupNames = @(" + ('"{0}"' -f ($defaultDelegatedFormAccessGroupNames -join '","')) + ") #Only unique names are supported. Categories will be created if not exists";
+$PowershellScript += "`n`$delegatedFormCategories = @(" + ('"{0}"' -f ($delegatedFormCategories -join '","')) + ") #Only unique names are supported. Groups must exist!";
+$PowershellScript += "`n`n";
+$PowershellScript += @'
 # Create authorization headers with HelloID API key
 $pair = "$apiKey" + ":" + "$apiSecret"
 $bytes = [System.Text.Encoding]::ASCII.GetBytes($pair)
@@ -292,142 +453,6 @@ function Invoke-HelloIDDelegatedForm {
 
 '@
 
-
-
-function Update-DynamicFormSchema([System.Object[]]$formSchema, [string]$propertyName) {
-    for ($i = 0; $i -lt $formSchema.Length; $i++) {
-        $tmp = $($formSchema[$i]).psobject.Members | where-object membertype -like 'noteproperty'
-    
-        foreach ($item in $tmp) {
-            if (($item.Name -eq $propertyName) -and ([string]::IsNullOrEmpty($item.Value) -eq $false)) {
-                $oldValue = $item.Value
-                $item.Value = "$" + $propertyName + "_" + $script:dataSourcesGuids.Count
-                $script:dataSourcesGuids.add($item.Value, $oldValue)               
-            } elseif (($item.Value -is [array]) -or ($item.Value -is [System.Management.Automation.PSCustomObject])) {
-                Update-DynamicFormSchema $($item.Value) $propertyName
-            }
-        }
-    }
-}
-
-function Get-HelloIDData([string]$endpointUri) {
-    $take = 1000;   
-    $skip = 0;
-     
-    $results = [System.Collections.Generic.List[object]]@();
-    $paged = $true;
-    while ($paged) {
-        $uri = "$($script:PortalBaseUrl)$($endpointUri)?take=$($take)&skip=$($skip)";
-        $response = (Invoke-RestMethod -Method GET -Uri $uri -Headers $script:headers -ContentType 'application/json' -TimeoutSec 60)
-        if ([bool]($response.PSobject.Properties.name -eq "data")) { $response = $response.data }
-        if ($response.count -lt $take) {
-            $paged = $false;
-        } else {
-            $skip += $take;
-        }
-           
-        if ($response -is [array]) {
-            $results.AddRange($response);
-        } else {
-            $results.Add($response);
-        }
-    }
-    return $results;
-}
-
-
-#Delegated Form
-$delegatedForm = (Get-HelloIDData -endpointUri "/api/v1/delegatedforms/$delegatedFormName")
-
-#DelegatedForm Automation Task
-$psScripts = [System.Collections.Generic.List[object]]@();
-$taskList = (Get-HelloIDData -endpointUri "/api/v1/automationtasks")
-$delegatedFormTaskGUID = ($taskList | Where-Object { $_.objectGUID -eq $delegatedForm.delegatedFormGUID }).automationTaskGuid
-if (-not [string]::IsNullOrEmpty($delegatedFormTaskGUID)) {
-    $delegatedFormTask = (Get-HelloIDData -endpointUri "/api/v1/automationtasks/$($delegatedFormTaskGUID)")
-
-    # Add Delegated Form Task to array of Powershell scripts (to find use of global variables)
-    $tmpScript = $($delegatedFormTask.variables | Where-Object { $_.name -eq "powershellscript" }).Value;
-    $psScripts.Add($tmpScript)
-
-    # Export Delegated Form task to Manual Resource Folder
-    $tmpFileName = "$manualResourceFolder\[task]_$($delegatedFormTask.Name).ps1"
-    set-content -LiteralPath $tmpFileName -Value $tmpScript -Force
-}
-
-#DynamicForm
-$dynamicForm = (Get-HelloIDData -endpointUri "/api/v1/forms/$($delegatedForm.dynamicFormGUID)")
-
-#Get all global variables
-$allGlobalVariables = (Get-HelloIDData -endpointUri "/api/v1/automation/variables")
-
-#Get all data source GUIDs used in Dynamic Form
-$script:dataSourcesGuids = @{}
-Update-DynamicFormSchema $($dynamicForm.formSchema) "dataSourceGuid"
-set-content -LiteralPath "$manualResourceFolder\dynamicform.json" -Value (ConvertTo-Json -InputObject $dynamicForm.formSchema -Depth 100) -Force
-
-#Data Sources
-$dataSources = [System.Collections.Generic.List[object]]@();
-foreach ($item in $script:dataSourcesGuids.GetEnumerator()) {
-    try {
-        $dataSource = (Get-HelloIDData -endpointUri "/api/v1/datasource/$($item.Value)")
-        $dsTask = $null
-        
-        if ($dataSource.Type -eq 3 -and $dataSource.automationTaskGUID.Length -gt 0) {
-            $dsTask = (Get-HelloIDData -endpointUri "/api/v1/automationtasks/$($dataSource.automationTaskGUID)")
-        }
-
-        $dataSources.Add([PSCustomObject]@{ 
-                guid       = $item.Value; 
-                guidRef    = $item.Key; 
-                datasource = $dataSource; 
-                task       = $dsTask; 
-            })
-
-        switch ($dataSource.type) {
-            # Static data source
-            2 {
-                # Export Data source to Manual resource folder
-                $tmpFileName = "$manualResourceFolder\[static-datasource]_$($dataSource.name)"
-                set-content -LiteralPath "$tmpFileName.json" -Value (ConvertTo-Json -InputObject $datasource.value) -Force
-                set-content -LiteralPath "$tmpFileName.model.json" -Value (ConvertTo-Json -InputObject $datasource.model) -Force
-                break;
-            }
-
-            # Task data source
-            3 {
-                # Add Powershell script to array (to look for use of global variables)
-                $tmpScript = $($dsTask.variables | Where-Object { $_.name -eq "powershellscript" }).Value
-                $psScripts.Add($tmpScript)
-                
-                # Export Data source to Manual resource folder
-                $tmpFileName = "$manualResourceFolder\[task-datasource]_$($dataSource.name)"
-                set-content -LiteralPath "$tmpFileName.ps1" -Value $tmpScript -Force
-                set-content -LiteralPath "$tmpFileName.model.json" -Value (ConvertTo-Json -InputObject $datasource.model) -Force
-                set-content -LiteralPath "$tmpFileName.inputs.json" -Value (ConvertTo-Json -InputObject $datasource.input) -Force
-                break; 
-            }
-            
-            # Powershell data source
-            4 {
-                # Add Powershell script to array (to look for use of global variables)
-                $tmpScript = $dataSource.script
-                $psScripts.Add($tmpScript);
-
-                # Export Data source to Manual resource folder
-                $tmpFileName = "$manualResourceFolder\[powershell-datasource]_$($dataSource.name)"
-                set-content -LiteralPath "$tmpFileName.ps1" -Value $tmpScript -Force
-                set-content -LiteralPath "$tmpFileName.model.json" -Value (ConvertTo-Json -InputObject $datasource.model) -Force
-                set-content -LiteralPath "$tmpFileName.inputs.json" -Value (ConvertTo-Json -InputObject $datasource.input) -Force
-                break;
-            }
-        }
-    } catch {
-        Write-Error "Failed to get Datasource";
-    }
-}
-
-
 # get all Global variables used in PS scripts (task data sources, powershell data source and delegated form task)
 $globalVariables = [System.Collections.Generic.List[object]]@();
 foreach ($tmpScript in $psScripts) {
@@ -443,6 +468,9 @@ foreach ($tmpScript in $psScripts) {
         }
     }
 }
+
+
+#
 
 #Build All-in-one PS script
 $PowershellScript += "<# Begin: HelloID Global Variables #>`n"
