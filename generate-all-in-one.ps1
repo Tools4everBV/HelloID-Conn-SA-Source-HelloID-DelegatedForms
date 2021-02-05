@@ -113,6 +113,12 @@ if (-not [string]::IsNullOrEmpty($delegatedFormTaskGUID)) {
     # Export Delegated Form task to Manual Resource Folder
     $tmpFileName = "$manualResourceFolder\[task]_$($delegatedFormTask.Name).ps1"
     set-content -LiteralPath $tmpFileName -Value $tmpScript -Force
+
+    # Export Delegated Form task to Manual Resource Folder
+    $tmpMapping = $($delegatedFormTask.variables) | Select-Object Name, Value
+    $tmpMapping = $tmpMapping | Where-Object { $_.name -ne "powershellscript" -and $_.name -ne "useTemplate" -and $_.name -ne "powerShellScriptGuid"}
+    $tmpFileName = "$manualResourceFolder\[task]_$($delegatedFormTask.Name).mapping.json"
+    set-content -LiteralPath $tmpFileName -Value (ConvertTo-Json -InputObject $tmpMapping -Depth 100) -Force
 }
 
 #DynamicForm

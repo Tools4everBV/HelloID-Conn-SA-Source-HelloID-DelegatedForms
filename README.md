@@ -18,6 +18,7 @@ After configuring and running the "generate-all-in-one.ps1" script the following
   <tr><td><strong>File</strong></td><td><strong>Description</strong></td></tr>
   <tr><td>All-in-one setup\createform.ps1</td><td>An All-in-one PS script to generate (import) the complete Delegated form and required resources into you HelloID portal using API calls</td></tr>
   <tr><td>Manual resources\[task]_&lt;task-name&gt;.ps1</td><td>Powershell task connected to Delegated From</td></tr>
+  <tr><td>Manual resources\[task]_&lt;task-name&gt;.mapping.json</td><td>Variable mapping of Powershell task connected to Delegated From</td></tr>
   <tr><td>Manual resources\dynamicform.jsom</td><td>JSON form structure of the Dynamic form</td></tr>
   <tr><td>Manual resources\[datasource]_&lt;datasource-name&gt;.json</td><td>JSON data structure used for Static data sources (only)</td></tr>
   <tr><td>Manual resources\[datasource]_&lt;datasource-name&gt;.ps1</td><td>Powershell script from Task Data source or Powershell data source</td></tr>
@@ -62,7 +63,7 @@ The generated all-in-one PowerShell script includes the following resources
    * Task data sources (including Powershell Task, model definition and data source inputs)
    * Powershell data sources (including Powershell script, model definition and data source inputs)
 3. All used Powershell scripts
-   * Delegated Form task
+   * Delegated Form task (including variable mapping)
    * Task data source Powershell Task
    * Powershell data source script
 4. Dynamic form JSON data structure
