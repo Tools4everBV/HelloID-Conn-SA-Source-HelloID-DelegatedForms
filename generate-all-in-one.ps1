@@ -664,7 +664,7 @@ if (-not [string]::IsNullOrEmpty($delegatedFormTaskGUID)) {
     $PowershellScript += "`$delegatedFormTaskName = @'`n" + ($delegatedFormTask.Name) + "`n'@`n"
     $PowershellScript += "`tInvoke-HelloIDAutomationTask -TaskName `$delegatedFormTaskName -UseTemplate """ + ($delegatedFormTask.variables | Where-Object { $_.name -eq "useTemplate" }).Value + """ -AutomationContainer ""$($delegatedFormTask.automationContainer)"" -Variables `$tmpVariables -PowershellScript `$tmpScript -ObjectGuid `$delegatedFormRef.guid -ForceCreateTask `$true -returnObject ([Ref]`$delegatedFormTaskGuid) `n"
     $PowershellScript += "} else {`n"
-    $PowershellScript += "`tWrite-Waning ""Delegated form '`$delegatedFormName' already exists. Nothing to do with the Delegated Form task..."" `n"
+    $PowershellScript += "`tWrite-Warning ""Delegated form '`$delegatedFormName' already exists. Nothing to do with the Delegated Form task..."" `n"
     $PowershellScript += "}`n"
     $PowershellScript += "<# End: Delegated Form Task #>"
 }
