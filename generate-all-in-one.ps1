@@ -225,20 +225,25 @@ $PowershellScript += "`n`n";
 
 $PowershellScript += "#The following HelloID Global variables are used by this form. No existing HelloID global variables will be overriden only new ones are created.`n"
 $PowershellScript += "#NOTE: You can also update the HelloID Global variable values afterwards in the HelloID Admin Portal: https://<CUSTOMER>.helloid.com/admin/variablelibrary`n"
-$PowershellScript += "`$globalHelloIDVariables = [System.Collections.Generic.List[object]]@();`n"
+$PowershellScript += "`$globalHelloIDVariables = [System.Collections.Generic.List[object]]@();`n`n"
 
+$tmpCounter = 1
 foreach ($item in $globalVariables) {
+    $PowershellScript += "#Global variable #$tmpCounter >> $($item.Name)`n";
     $PowershellScript += "`$tmpName = @'`n" + $($item.Name) + "`n'@ `n";
     if ([string]::IsNullOrEmpty($item.value)) {
         $PowershellScript += "`$tmpValue = """" `n";
     } else {
         $PowershellScript += "`$tmpValue = @'`n" + ($item.value) + "`n'@ `n";
     }    
-    $PowershellScript += "`$globalHelloIDVariables.Add([PSCustomObject]@{name = `$tmpName; value = `$tmpValue; secret = ""$($item.secret)""});`n"
+    $PowershellScript += "`$globalHelloIDVariables.Add([PSCustomObject]@{name = `$tmpName; value = `$tmpValue; secret = ""$($item.secret)""});`n`n"
+
+    $tmpCounter++
 }
-$PowershellScript += "`n`n";
+$PowershellScript += "`n";
 $PowershellScript += @'
-$InformationPreference = "continue" #make sure write-information logging is visual
+#make sure write-information logging is visual
+$InformationPreference = "continue"
 
 # Create authorization headers with HelloID API key
 $pair = "$apiKey" + ":" + "$apiSecret"
