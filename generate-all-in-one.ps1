@@ -216,8 +216,8 @@ $script:PortalBaseUrl = "https://CUSTOMER.helloid.com"
 $apiKey = "API_KEY"
 $apiSecret = "API_SECRET"
 '@
-$PowershellScript += "`n`$delegatedFormAccessGroupNames = @(" + ('"{0}"' -f ($defaultDelegatedFormAccessGroupNames -join '","')) + ") #Only unique names are supported. Categories will be created if not exists";
-$PowershellScript += "`n`$delegatedFormCategories = @(" + ('"{0}"' -f ($delegatedFormCategories -join '","')) + ") #Only unique names are supported. Groups must exist!";
+$PowershellScript += "`n`$delegatedFormAccessGroupNames = @(" + ('"{0}"' -f ($defaultDelegatedFormAccessGroupNames -join '","')) + ") #Only unique names are supported. Groups must exist!";
+$PowershellScript += "`n`$delegatedFormCategories = @(" + ('"{0}"' -f ($delegatedFormCategories -join '","')) + ") #Only unique names are supported. Categories will be created if not exists";
 $PowershellScript += "`n`$script:debugLogging = `$false #Default value: `$false. If `$true, the HelloID resource GUIDs will be shown in the logging"
 $PowershellScript += "`n`$script:duplicateForm = `$false #Default value: `$false. If `$true, the HelloID resource names will be changed to import a duplicate Form"
 $PowershellScript += "`n`$script:duplicateFormSuffix = ""_tmp"" #the suffix will be added to all HelloID resource names to generate a duplicate form with different resource names"
