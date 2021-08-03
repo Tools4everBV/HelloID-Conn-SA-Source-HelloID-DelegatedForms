@@ -203,7 +203,7 @@ foreach ($tmpScript in $psScripts) {
         foreach ($var in $allGlobalVariables) {
             $result = $lowerCase.IndexOf($var.Name.ToLower())
             
-            if (($result -ne -1) -and (($globalVariables.name -match $var.name) -eq $false)) {
+            if (($result -ne -1) -and (($globalVariables.name -contains $var.name) -eq $false)) {
                 $tmpValue = if ($var.secret -eq $true) { ""; } else { $var.value; }
                 $globalVariables.Add([PSCustomObject]@{name = $var.Name; value = $tmpValue; secret = $var.secret })
             }
