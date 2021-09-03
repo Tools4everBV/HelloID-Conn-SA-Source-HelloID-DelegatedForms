@@ -8,7 +8,7 @@ $apiSecret = "API_SECRET"
 $delegatedFormName = "<DELEGATED FORM NAME>"
 $useManualDelegatedFormCategories = $true #$true means use manual categories listed below. $false means receive current categories from DelegatedForm
 $manualDelegatedFormCategories = @("Active Directory", "User Management") #Only unique names are supported. Categories will be created if not exists
-$defaultDelegatedFormAccessGroupNames = @("Users", "HID_administrators") #Only unique names are supported. Groups must exist within HelloID!
+$defaultDelegatedFormAccessGroupNames = @("Users") #Only unique names are supported. Groups must exist within HelloID!
 $rootExportFolder = "C:\HelloID\Delegated Forms" #example: C:\HelloID\Delegated Forms
 
 
