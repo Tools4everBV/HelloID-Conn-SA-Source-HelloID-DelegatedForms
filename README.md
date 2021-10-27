@@ -2,6 +2,12 @@
 <!-- Description -->
 ## Description
 This HelloID Service Automation Powershell script generates a complete set of files including an _"All-in-one Powershell script"_ for the provided delegated form.
+
+## Versioning
+| Version | Description | Date |
+| - | - | - |
+| 1.0.1   | Added version number | 2021/10/27  |
+| 1.0.0   | Initial release | 2021/01/08  |
  
 <!-- TABLE OF CONTENTS -->
 ## Table of Contents
