@@ -86,5 +86,8 @@ The generated all-in-one PowerShell script includes the following resources
  * Powershel script template (use template instead of inline Powershell script) is not supported
  * Delegate Form Access Groups are not exported but are hardcoded in the generated script (you need to update them manually)
 
+## Getting help
+_If you need help, feel free to ask questions on our [forum](https://forum.helloid.com/forum/helloid-connectors/service-automation/463-helloid-sa-export-helloid-delegated-form)_
+
 # HelloID Docs
 The official HelloID documentation can be found at: https://docs.helloid.com/
