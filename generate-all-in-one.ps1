@@ -2,7 +2,7 @@
 [Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls -bor [Net.SecurityProtocolType]::Tls11 -bor [Net.SecurityProtocolType]::Tls12
 
 #HelloID variables
-$script:PortalBaseUrl = "https:/CUSTOMER.helloid.com"
+$script:PortalBaseUrl = "https://CUSTOMER.helloid.com"
 $apiKey = "API_KEY"
 $apiSecret = "API_SECRET"
 $delegatedFormName = "<DELEGATED FORM NAME>"
