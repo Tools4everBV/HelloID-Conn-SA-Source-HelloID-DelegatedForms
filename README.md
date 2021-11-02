@@ -6,6 +6,7 @@ This HelloID Service Automation Powershell script generates a complete set of fi
 ## Versioning
 | Version | Description | Date |
 | - | - | - |
+| 1.0.2   | Fixed return empty array using PowerShell Core | 2021/11/2  |
 | 1.0.1   | Added version number | 2021/10/27  |
 | 1.0.0   | Initial release | 2021/01/08  |
  
