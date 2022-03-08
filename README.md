@@ -6,6 +6,7 @@ This HelloID Service Automation Powershell script generates a complete set of fi
 ## Versioning
 | Version | Description | Date |
 | - | - | - |
+| 1.1.0   | Added support for new Delegated Form task using SA (cloud) Agent | 2022/02/20  |
 | 1.0.2   | Fixed return empty array using PowerShell Core | 2021/11/2  |
 | 1.0.1   | Added version number | 2021/10/27  |
 | 1.0.0   | Initial release | 2021/01/08  |
@@ -25,7 +26,8 @@ After configuring and running the "generate-all-in-one.ps1" script the following
   <tr><td><strong>File</strong></td><td><strong>Description</strong></td></tr>
   <tr><td>All-in-one setup\createform.ps1</td><td>An All-in-one PS script to generate (import) the complete Delegated form and required resources into you HelloID portal using API calls</td></tr>
   <tr><td>Manual resources\[task]_&lt;task-name&gt;.ps1</td><td>Powershell task connected to Delegated From</td></tr>
-  <tr><td>Manual resources\[task]_&lt;task-name&gt;.mapping.json</td><td>Variable mapping of Powershell task connected to Delegated From</td></tr>
+  <tr><td>Manual resources\[task]_&lt;task-name&gt;.config.json</td><td>PowerShell task config. Only for new Tasks using the SA (cloud) Agent</td></tr>
+  <tr><td>Manual resources\[task]_&lt;task-name&gt;.mapping.json</td><td>Variable mapping of Powershell task connected to Delegated From. Only for old Autmation Tasks not using the SA (cloud) Agent</td></tr>
   <tr><td>Manual resources\dynamicform.jsom</td><td>JSON form structure of the Dynamic form</td></tr>
   <tr><td>Manual resources\[datasource]_&lt;datasource-name&gt;.json</td><td>JSON data structure used for Static data sources (only)</td></tr>
   <tr><td>Manual resources\[datasource]_&lt;datasource-name&gt;.ps1</td><td>Powershell script from Task Data source or Powershell data source</td></tr>
@@ -70,7 +72,7 @@ The generated all-in-one PowerShell script includes the following resources
    * Task data sources (including Powershell Task, model definition and data source inputs)
    * Powershell data sources (including Powershell script, model definition and data source inputs)
 3. All used Powershell scripts
-   * Delegated Form task (including variable mapping)
+   * Delegated Form task (including variable mapping when using old Automation task)
    * Task data source Powershell Task
    * Powershell data source script
 4. Dynamic form JSON data structure
