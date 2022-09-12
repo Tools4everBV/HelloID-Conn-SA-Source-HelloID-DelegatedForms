@@ -6,7 +6,7 @@ $script:PortalBaseUrl = "https://CUSTOMER.helloid.com"
 $apiKey = "API_KEY"
 $apiSecret = "API_SECRET"
 $delegatedFormName = "<DELEGATED FORM NAME>"
-$useManualDelegatedFormCategories = $true #$true means use manual categories listed below. $false means receive current categories from DelegatedForm
+$useManualDelegatedFormCategories = $false #$true means use manual categories listed below. $false means receive current categories from DelegatedForm
 $manualDelegatedFormCategories = @("Active Directory", "User Management") #Only unique names are supported. Categories will be created if not exists
 $defaultDelegatedFormAccessGroupNames = @() #Only unique names are supported. Groups must exist within HelloID!
 $rootExportFolder = "C:\HelloID\Delegated Forms" #example: C:\HelloID\Delegated Forms
@@ -684,6 +684,8 @@ foreach($category in $delegatedFormCategories) {
     try {
         $uri = ($script:PortalBaseUrl +"api/v1/delegatedformcategories/$category")
         $response = Invoke-RestMethod -Method Get -Uri $uri -Headers $script:headers -ContentType "application/json" -Verbose:$false
+        $response = $response | Where-Object {$_.name.en -eq $category}
+        
         $tmpGuid = $response.delegatedFormCategoryGuid
         $delegatedFormCategoryGuids += $tmpGuid
         
