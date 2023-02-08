@@ -60,7 +60,7 @@ function Get-HelloIDData([string]$endpointUri) {
         $uri = "$($script:PortalBaseUrl)$($endpointUri)?take=$($take)&skip=$($skip)";
         $response = (Invoke-RestMethod -Method GET -Uri $uri -Headers $script:headers -ContentType 'application/json' -TimeoutSec 60)
         if ([bool]($response.PSobject.Properties.name -eq "data")) { $response = $response.data }
-        if ($response.count -lt $take) {
+        if (($response.count -lt $take) -or ($response.count -gt $take)) {
             $paged = $false;
         } else {
             $skip += $take;
