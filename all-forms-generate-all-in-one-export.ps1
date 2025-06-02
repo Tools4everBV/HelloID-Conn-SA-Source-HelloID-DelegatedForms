@@ -221,6 +221,11 @@ foreach ($form in $allForms) {
                     set-content -LiteralPath "$tmpFileName.ps1" -Value $tmpScript -Force
                     set-content -LiteralPath "$tmpFileName.model.json" -Value (ConvertTo-Json -InputObject $datasource.model -Depth 100) -Force
                     set-content -LiteralPath "$tmpFileName.inputs.json" -Value (ConvertTo-Json -InputObject $datasource.input -Depth 100) -Force
+                    $powershellDatasourceConfig = [PSCustomObject]@{ 
+                        name       = $datasource.name; 
+                        runInCloud = $datasource.runInCloud;
+                    }
+                    set-content -LiteralPath "$tmpFileName.config.json" -Value (ConvertTo-Json -InputObject $powershellDatasourceConfig -Depth 100) -Force
                     break;
                 }
             }
@@ -250,42 +255,42 @@ foreach ($form in $allForms) {
 
     # default all-in-one script output
     $PowershellScript = @'
-    # Set TLS to accept TLS, TLS 1.1 and TLS 1.2
-    [Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls -bor [Net.SecurityProtocolType]::Tls11 -bor [Net.SecurityProtocolType]::Tls12
+# Set TLS to accept TLS, TLS 1.1 and TLS 1.2
+[Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls -bor [Net.SecurityProtocolType]::Tls11 -bor [Net.SecurityProtocolType]::Tls12
 
-    #HelloID variables
-    #Note: when running this script inside HelloID; portalUrl and API credentials are provided automatically (generate and save API credentials first in your admin panel!)
-    $portalUrl = "https://CUSTOMER.helloid.com"
-    $apiKey = "API_KEY"
-    $apiSecret = "API_SECRET"
+#HelloID variables
+#Note: when running this script inside HelloID; portalUrl and API credentials are provided automatically (generate and save API credentials first in your admin panel!)
+$portalUrl = "https://CUSTOMER.helloid.com"
+$apiKey = "API_KEY"
+$apiSecret = "API_SECRET"
 '@
-        $PowershellScript += "`n`$delegatedFormAccessGroupNames = @(" + ('"{0}"' -f ($defaultDelegatedFormAccessGroupNames -join '","')) + ") #Only unique names are supported. Groups must exist!";
-        $PowershellScript += "`n`$delegatedFormCategories = @(" + ('"{0}"' -f ($delegatedFormCategories -join '","')) + ") #Only unique names are supported. Categories will be created if not exists";
-        $PowershellScript += "`n`$script:debugLogging = `$false #Default value: `$false. If `$true, the HelloID resource GUIDs will be shown in the logging"
-        $PowershellScript += "`n`$script:duplicateForm = `$false #Default value: `$false. If `$true, the HelloID resource names will be changed to import a duplicate Form"
-        $PowershellScript += "`n`$script:duplicateFormSuffix = ""_tmp"" #the suffix will be added to all HelloID resource names to generate a duplicate form with different resource names"
-        $PowershellScript += "`n`n";
+    $PowershellScript += "`n`$delegatedFormAccessGroupNames = @(" + ('"{0}"' -f ($defaultDelegatedFormAccessGroupNames -join '","')) + ") #Only unique names are supported. Groups must exist!";
+    $PowershellScript += "`n`$delegatedFormCategories = @(" + ('"{0}"' -f ($delegatedFormCategories -join '","')) + ") #Only unique names are supported. Categories will be created if not exists";
+    $PowershellScript += "`n`$script:debugLogging = `$false #Default value: `$false. If `$true, the HelloID resource GUIDs will be shown in the logging"
+    $PowershellScript += "`n`$script:duplicateForm = `$false #Default value: `$false. If `$true, the HelloID resource names will be changed to import a duplicate Form"
+    $PowershellScript += "`n`$script:duplicateFormSuffix = ""_tmp"" #the suffix will be added to all HelloID resource names to generate a duplicate form with different resource names"
+    $PowershellScript += "`n`n";
 
-        $PowershellScript += "#The following HelloID Global variables are used by this form. No existing HelloID global variables will be overriden only new ones are created.`n"
-        $PowershellScript += "#NOTE: You can also update the HelloID Global variable values afterwards in the HelloID Admin Portal: https://<CUSTOMER>.helloid.com/admin/variablelibrary`n"
-        $PowershellScript += "`$globalHelloIDVariables = [System.Collections.Generic.List[object]]@();`n`n"
+    $PowershellScript += "#The following HelloID Global variables are used by this form. No existing HelloID global variables will be overriden only new ones are created.`n"
+    $PowershellScript += "#NOTE: You can also update the HelloID Global variable values afterwards in the HelloID Admin Portal: https://<CUSTOMER>.helloid.com/admin/variablelibrary`n"
+    $PowershellScript += "`$globalHelloIDVariables = [System.Collections.Generic.List[object]]@();`n`n"
 
-        $tmpCounter = 1
-        foreach ($item in $globalVariables) {
-            $PowershellScript += "#Global variable #$tmpCounter >> $($item.Name)`n";
-            $PowershellScript += "`$tmpName = @'`n" + $($item.Name) + "`n'@ `n";
-            if ([string]::IsNullOrEmpty($item.value)) {
-                $PowershellScript += "`$tmpValue = """" `n";
-            }
-            else {
-                $PowershellScript += "`$tmpValue = @'`n" + ($item.value) + "`n'@ `n";
-            }    
-            $PowershellScript += "`$globalHelloIDVariables.Add([PSCustomObject]@{name = `$tmpName; value = `$tmpValue; secret = ""$($item.secret)""});`n`n"
-
-            $tmpCounter++
+    $tmpCounter = 1
+    foreach ($item in $globalVariables) {
+        $PowershellScript += "#Global variable #$tmpCounter >> $($item.Name)`n";
+        $PowershellScript += "`$tmpName = @'`n" + $($item.Name) + "`n'@ `n";
+        if ([string]::IsNullOrEmpty($item.value)) {
+            $PowershellScript += "`$tmpValue = """" `n";
         }
-        $PowershellScript += "`n";
-        $PowershellScript += @'
+        else {
+            $PowershellScript += "`$tmpValue = @'`n" + ($item.value) + "`n'@ `n";
+        }    
+        $PowershellScript += "`$globalHelloIDVariables.Add([PSCustomObject]@{name = `$tmpName; value = `$tmpValue; secret = ""$($item.secret)""});`n`n"
+
+        $tmpCounter++
+    }
+    $PowershellScript += "`n";
+    $PowershellScript += @'
     #make sure write-information logging is visual
     $InformationPreference = "continue"
 
@@ -422,6 +427,7 @@ foreach ($form in $allForms) {
             [parameter()][String][AllowEmptyString()]$DatasourcePsScript,        
             [parameter()][String][AllowEmptyString()]$DatasourceInput,
             [parameter()][String][AllowEmptyString()]$AutomationTaskGuid,
+            [parameter()][String][AllowEmptyString()]$DatasourceRunInCloud,
             [parameter(Mandatory)][Ref]$returnObject
         )
 
@@ -448,6 +454,7 @@ foreach ($form in $allForms) {
                     value              = (ConvertFrom-Json-WithEmptyArray($DatasourceStaticValue));
                     script             = $DatasourcePsScript;
                     input              = (ConvertFrom-Json-WithEmptyArray($DatasourceInput));
+                    runInCloud         = $DatasourceRunInCloud;
                 }
                 $body = ConvertTo-Json -InputObject $body -Depth 100
       
@@ -653,7 +660,7 @@ foreach ($form in $allForms) {
                 # Output method call Data source with parameters
                 $PowershellScript += ($item.guidRef) + " = [PSCustomObject]@{} `n"
                 $PowershellScript += ($item.guidRef) + "_Name = @'`n" + $($item.datasource.Name) + "`n'@ `n";
-                $PowershellScript += "Invoke-HelloIDDatasource -DatasourceName " + ($item.guidRef) + "_Name -DatasourceType ""$($item.datasource.type)"" -DatasourceInput `$tmpInput -DatasourcePsScript `$tmpPsScript -DatasourceModel `$tmpModel -returnObject ([Ref]" + ($item.guidRef) + ") `n"
+                $PowershellScript += "Invoke-HelloIDDatasource -DatasourceName " + ($item.guidRef) + "_Name -DatasourceType ""$($item.datasource.type)"" -DatasourceInput `$tmpInput -DatasourcePsScript `$tmpPsScript -DatasourceModel `$tmpModel -DataSourceRunInCloud ""$($item.datasource.runInCloud)"" -returnObject ([Ref]" + ($item.guidRef) + ") `n"
 
                 break;
             }
