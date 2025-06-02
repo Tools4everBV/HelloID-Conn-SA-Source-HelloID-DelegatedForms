@@ -43,7 +43,8 @@ function Update-DynamicFormSchema([System.Object[]]$formSchema, [string]$propert
                 $oldValue = $item.Value
                 $item.Value = "$" + $propertyName + "_" + $script:dataSourcesGuids.Count
                 $script:dataSourcesGuids.add($item.Value, $oldValue)               
-            } elseif (($item.Value -is [array]) -or ($item.Value -is [System.Management.Automation.PSCustomObject])) {
+            }
+            elseif (($item.Value -is [array]) -or ($item.Value -is [System.Management.Automation.PSCustomObject])) {
                 Update-DynamicFormSchema $($item.Value) $propertyName
             }
         }
@@ -62,13 +63,15 @@ function Get-HelloIDData([string]$endpointUri) {
         if ([bool]($response.PSobject.Properties.name -eq "data")) { $response = $response.data }
         if (($response.count -lt $take) -or ($response.count -gt $take)) {
             $paged = $false;
-        } else {
+        }
+        else {
             $skip += $take;
         }
            
         if ($response -is [array]) {
             $results.AddRange($response);
-        } else {
+        }
+        else {
             $results.Add($response);
         }
     }
@@ -78,28 +81,30 @@ function Get-HelloIDData([string]$endpointUri) {
 
 #Delegated Form
 $delegatedForm = (Get-HelloIDData -endpointUri "/api/v1/delegatedforms/$delegatedFormName")
-if([string]::IsNullOrEmpty($delegatedForm.delegatedFormGUID)){
+if ([string]::IsNullOrEmpty($delegatedForm.delegatedFormGUID)) {
     Write-Error "Failed to load Delegated Form called: $delegatedFormName";
     exit;
 }
 
 #Delegated Form categories
-if(-not $useManualDelegatedFormCategories -eq $true) {
+if (-not $useManualDelegatedFormCategories -eq $true) {
     $tmpCategories = @();
     $currentCategories = $delegatedForm.categoryGuids
     
-    foreach($item in $currentCategories) {
+    foreach ($item in $currentCategories) {
         $tmpCategory = (Get-HelloIDData -endpointUri "/api/v1/delegatedformcategories/$($item)")
         $tmpCategories += $tmpCategory.name.en
     }
 
-    if($tmpCategories.Count -gt 0) {
+    if ($tmpCategories.Count -gt 0) {
         $delegatedFormCategories = $tmpCategories
-    } else {
-       # use default delegated form categories
+    }
+    else {
+        # use default delegated form categories
         $delegatedFormCategories = $manualDelegatedFormCategories 
     }
-} else {
+}
+else {
     # use default delegated form categories
     $delegatedFormCategories = $manualDelegatedFormCategories
 }
@@ -124,10 +129,11 @@ if (-not [string]::IsNullOrEmpty($delegatedFormAutomationTaskGUID)) {
 
     # Export Delegated Form automation task mapping to Manual Resource Folder
     $tmpMapping = $($delegatedFormAutomationTask.variables) | Select-Object Name, Value
-    $tmpMapping = $tmpMapping | Where-Object { $_.name -ne "powershellscript" -and $_.name -ne "useTemplate" -and $_.name -ne "powerShellScriptGuid"}
+    $tmpMapping = $tmpMapping | Where-Object { $_.name -ne "powershellscript" -and $_.name -ne "useTemplate" -and $_.name -ne "powerShellScriptGuid" }
     $tmpFileName = "$manualResourceFolder\[task]_$($delegatedFormAutomationTask.Name).mapping.json"
     set-content -LiteralPath $tmpFileName -Value (ConvertTo-Json -InputObject $tmpMapping -Depth 100) -Force
-} else {
+}
+else {
     # integrated Delegated Form Task
     $delegatedFormAutomationTaskId = $delegatedForm.task.id
     $tmpScript = $($delegatedForm.task.script)
@@ -141,7 +147,7 @@ if (-not [string]::IsNullOrEmpty($delegatedFormAutomationTaskGUID)) {
     # Export Delegated Form task config to Manual Resource Folder
     $taskConfig = [PSCustomObject]@{ 
         name       = $delegatedForm.task.name; 
-        runInCloud    = $delegatedForm.task.runInCloud;
+        runInCloud = $delegatedForm.task.runInCloud;
     }
 
     $tmpFileName = "$manualResourceFolder\[task]_$tmpScriptName.config.json"
@@ -212,10 +218,16 @@ foreach ($item in $script:dataSourcesGuids.GetEnumerator()) {
                 set-content -LiteralPath "$tmpFileName.ps1" -Value $tmpScript -Force
                 set-content -LiteralPath "$tmpFileName.model.json" -Value (ConvertTo-Json -InputObject $datasource.model -Depth 100) -Force
                 set-content -LiteralPath "$tmpFileName.inputs.json" -Value (ConvertTo-Json -InputObject $datasource.input -Depth 100) -Force
+                $powershellDatasourceConfig = [PSCustomObject]@{ 
+                    name       = $datasource.name; 
+                    runInCloud = $datasource.runInCloud;
+                }
+                set-content -LiteralPath "$tmpFileName.config.json" -Value (ConvertTo-Json -InputObject $powershellDatasourceConfig -Depth 100) -Force
                 break;
             }
         }
-    } catch {
+    }
+    catch {
         Write-Error "Failed to get Datasource";
     }
 }
@@ -266,7 +278,8 @@ foreach ($item in $globalVariables) {
     $PowershellScript += "`$tmpName = @'`n" + $($item.Name) + "`n'@ `n";
     if ([string]::IsNullOrEmpty($item.value)) {
         $PowershellScript += "`$tmpValue = """" `n";
-    } else {
+    }
+    else {
         $PowershellScript += "`$tmpValue = @'`n" + ($item.value) + "`n'@ `n";
     }    
     $PowershellScript += "`$globalHelloIDVariables.Add([PSCustomObject]@{name = `$tmpName; value = `$tmpValue; secret = ""$($item.secret)""});`n`n"
@@ -411,6 +424,7 @@ function Invoke-HelloIDDatasource {
         [parameter()][String][AllowEmptyString()]$DatasourcePsScript,        
         [parameter()][String][AllowEmptyString()]$DatasourceInput,
         [parameter()][String][AllowEmptyString()]$AutomationTaskGuid,
+        [parameter()][String][AllowEmptyString()]$DatasourceRunInCloud,
         [parameter(Mandatory)][Ref]$returnObject
     )
 
@@ -437,6 +451,7 @@ function Invoke-HelloIDDatasource {
                 value              = (ConvertFrom-Json-WithEmptyArray($DatasourceStaticValue));
                 script             = $DatasourcePsScript;
                 input              = (ConvertFrom-Json-WithEmptyArray($DatasourceInput));
+                runInCloud         = $DatasourceRunInCloud;
             }
             $body = ConvertTo-Json -InputObject $body -Depth 100
       
@@ -642,7 +657,7 @@ foreach ($item in $dataSources) {
             # Output method call Data source with parameters
             $PowershellScript += ($item.guidRef) + " = [PSCustomObject]@{} `n"
             $PowershellScript += ($item.guidRef) + "_Name = @'`n" + $($item.datasource.Name) + "`n'@ `n";
-            $PowershellScript += "Invoke-HelloIDDatasource -DatasourceName " + ($item.guidRef) + "_Name -DatasourceType ""$($item.datasource.type)"" -DatasourceInput `$tmpInput -DatasourcePsScript `$tmpPsScript -DatasourceModel `$tmpModel -returnObject ([Ref]" + ($item.guidRef) + ") `n"
+            $PowershellScript += "Invoke-HelloIDDatasource -DatasourceName " + ($item.guidRef) + "_Name -DatasourceType ""$($item.datasource.type)"" -DatasourceInput `$tmpInput -DatasourcePsScript `$tmpPsScript -DatasourceModel `$tmpModel -DataSourceRunInCloud ""$($item.datasource.runInCloud)"" -returnObject ([Ref]" + ($item.guidRef) + ") `n"
 
             break;
         }
@@ -715,14 +730,15 @@ $PowershellScript += "`$delegatedFormName = @'`n" + ($delegatedForm.name) + "`n'
 
 if (-not [string]::IsNullOrEmpty($delegatedFormAutomationTaskId)) {
     $tmpTaskObject = [PSCustomObject]@{
-        name = $delegatedForm.task.name;
-        script = $delegatedForm.task.script;
+        name       = $delegatedForm.task.name;
+        script     = $delegatedForm.task.script;
         runInCloud = $delegatedForm.task.runInCloud;
     }
 
     # Output PS script in local variable
     $PowershellScript += "`$tmpTask = @'`n" + (ConvertTo-Json -InputObject $tmpTaskObject -Depth 100 -Compress) + "`n'@ `n";
-} else {
+}
+else {
     $PowershellScript += "`$tmpTask = `$null `n";
 }
 $PowershellScript += "`n"  
