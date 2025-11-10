@@ -6,7 +6,8 @@ $script:PortalBaseUrl = "https://<klant>.helloid.com"
 $apiKey = "<apikey>"
 $apiSecret = "<apisecret>"
 
-$rootExportFolder = "c:\Temp\<klant>" #example: C:\HelloID\Delegated Forms
+# Note: a sub folder is created based on the portal url
+$rootExportFolder = "C:\Temp\HelloID\Delegated Forms" #example: C:\HelloID\Delegated Forms
 
 $useManualDelegatedFormCategories = $false #$true means use manual categories listed below. $false means receive current categories from DelegatedForm
 $manualDelegatedFormCategories = @() #Only unique names are supported. Categories will be created if not exists
@@ -21,7 +22,7 @@ $script:headers = @{"authorization" = $Key }
 # Define specific endpoint URI
 $script:PortalBaseUrl = $script:PortalBaseUrl.trim("/") + "/"
 
-
+#region Functions
 function Update-DynamicFormSchema([System.Object[]]$formSchema, [string]$propertyName) {
     for ($i = 0; $i -lt $formSchema.Length; $i++) {
         $tmp = $($formSchema[$i]).psobject.Members | where-object membertype -like 'noteproperty'
@@ -66,6 +67,43 @@ function Get-HelloIDData([string]$endpointUri) {
     return $results;
 }
 
+function Get-HelloIDPortalName {
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory = $true)][ValidateNotNullOrEmpty()][string]$PortalUrl
+    )
+
+    # Ensure a scheme so [uri] parsing works
+    if (-not ($PortalUrl -match '^\s*https?://')) { $PortalUrl = "https://$PortalUrl" }
+
+    try {
+        $tenantUri = [uri]$PortalUrl
+    }
+    catch {
+        throw "Invalid PortalUrl: $PortalUrl"
+    }
+
+    $tenantUriHost = $tenantUri.Host.ToLower()    # Host excludes port
+
+    # Domain -> suffix mapping (key = domain suffix, value = text to append to portal label)
+    $map = @{
+        'preview-helloid.com' = '-preview'
+        'helloid.training'    = '-training'
+        'helloid.com'         = ''
+    }
+
+    foreach ($domainSuffix in $map.Keys) {
+        $escaped = [regex]::Escape($domainSuffix)
+        if ($tenantUriHost -match "^(?<label>[^.]+)\.$escaped$") {
+            return ($matches['label'] + $map[$domainSuffix])
+        }
+    }
+
+    # Fallback: return host without leading www.
+    return ($tenantUriHost -replace '^www\.', '')
+}
+#endregion Functions
+
 $allForms = (Get-HelloIDData -endpointUri "/api/v1/delegatedforms")
 $taskList = (Get-HelloIDData -endpointUri "/api/v1/automationtasks")
 $countForm = 0
@@ -80,8 +118,9 @@ foreach ($form in $allForms) {
     $subfolder = $subfolder -replace [regex]'[^[\]a-zA-Z0-9_ -]', ''
     $subfolder = $subfolder.Trim("\")
     $rootExportFolder = $rootExportFolder.Trim("\")
-    $allInOneFolder = "$rootExportFolder\$subfolder\All-in-one setup"
-    $manualResourceFolder = "$rootExportFolder\$subfolder\Manual resources"
+    $tenantFolder = Get-HelloIDPortalName -PortalUrl $PortalBaseUrl
+    $allInOneFolder = "$rootExportFolder\$tenantFolder\$subfolder\All-in-one setup"
+    $manualResourceFolder = "$rootExportFolder\$tenantFolder\$subfolder\Manual resources"
     $null = New-Item -ItemType Directory -Force -Path $allInOneFolder
     $null = New-Item -ItemType Directory -Force -Path $manualResourceFolder
 
@@ -127,13 +166,13 @@ foreach ($form in $allForms) {
         $psScripts.Add($tmpScript)
 
         # Export Delegated Form automation task to Manual Resource Folder
-        $tmpFileName = "$manualResourceFolder\[task]_$($delegatedFormAutomationTask.Name).ps1"
+        $tmpFileName = "$manualResourceFolder\[task]_$($delegatedFormAutomationTask.Name).ps1".replace('|', '-').replace('&', 'AND')
         set-content -LiteralPath $tmpFileName -Value $tmpScript -Force
 
         # Export Delegated Form automation task mapping to Manual Resource Folder
         $tmpMapping = $($delegatedFormAutomationTask.variables) | Select-Object Name, Value
         $tmpMapping = $tmpMapping | Where-Object { $_.name -ne "powershellscript" -and $_.name -ne "useTemplate" -and $_.name -ne "powerShellScriptGuid" }
-        $tmpFileName = "$manualResourceFolder\[task]_$($delegatedFormAutomationTask.Name).mapping.json"
+        $tmpFileName = "$manualResourceFolder\[task]_$($delegatedFormAutomationTask.Name).mapping.json".replace('|', '-').replace('&', 'AND')
         set-content -LiteralPath $tmpFileName -Value (ConvertTo-Json -InputObject $tmpMapping -Depth 100) -Force
     }
     else {
@@ -144,7 +183,7 @@ foreach ($form in $allForms) {
         $psScripts.Add($tmpScript)
 
         # Export Delegated Form task to Manual Resource Folder
-        $tmpFileName = "$manualResourceFolder\[task]_$tmpScriptName.ps1"
+        $tmpFileName = "$manualResourceFolder\[task]_$tmpScriptName.ps1".replace('|', '-').replace('&', 'AND')
         set-content -LiteralPath $tmpFileName -Value $tmpScript -Force
 
         # Export Delegated Form task config to Manual Resource Folder
@@ -153,7 +192,7 @@ foreach ($form in $allForms) {
             runInCloud = $delegatedForm.task.runInCloud;
         }
 
-        $tmpFileName = "$manualResourceFolder\[task]_$tmpScriptName.config.json"
+        $tmpFileName = "$manualResourceFolder\[task]_$tmpScriptName.config.json".replace('|', '-').replace('&', 'AND')
         set-content -LiteralPath $tmpFileName -Value (ConvertTo-Json -InputObject $taskConfig -Depth 100) -Force
     }
 
@@ -190,7 +229,7 @@ foreach ($form in $allForms) {
                 # Static data source
                 2 {
                     # Export Data source to Manual resource folder
-                    $tmpFileName = "$manualResourceFolder\[static-datasource]_$($dataSource.name)"
+                    $tmpFileName = "$manualResourceFolder\[static-datasource]_$($dataSource.name)".replace('|', '-').replace('&', 'AND')
                     set-content -LiteralPath "$tmpFileName.json" -Value (ConvertTo-Json -InputObject $datasource.value -Depth 100) -Force
                     set-content -LiteralPath "$tmpFileName.model.json" -Value (ConvertTo-Json -InputObject $datasource.model -Depth 100) -Force
                     break;
@@ -203,7 +242,7 @@ foreach ($form in $allForms) {
                     $psScripts.Add($tmpScript)
                 
                     # Export Data source to Manual resource folder
-                    $tmpFileName = "$manualResourceFolder\[task-datasource]_$($dataSource.name)"
+                    $tmpFileName = "$manualResourceFolder\[task-datasource]_$($dataSource.name)".replace('|', '-').replace('&', 'AND')
                     set-content -LiteralPath "$tmpFileName.ps1" -Value $tmpScript -Force
                     set-content -LiteralPath "$tmpFileName.model.json" -Value (ConvertTo-Json -InputObject $datasource.model -Depth 100) -Force
                     set-content -LiteralPath "$tmpFileName.inputs.json" -Value (ConvertTo-Json -InputObject $datasource.input -Depth 100) -Force
@@ -217,7 +256,7 @@ foreach ($form in $allForms) {
                     $psScripts.Add($tmpScript);
 
                     # Export Data source to Manual resource folder
-                    $tmpFileName = "$manualResourceFolder\[powershell-datasource]_$($dataSource.name)"
+                    $tmpFileName = "$manualResourceFolder\[powershell-datasource]_$($dataSource.name)".replace('|', '-').replace('&', 'AND')
                     set-content -LiteralPath "$tmpFileName.ps1" -Value $tmpScript -Force
                     set-content -LiteralPath "$tmpFileName.model.json" -Value (ConvertTo-Json -InputObject $datasource.model -Depth 100) -Force
                     set-content -LiteralPath "$tmpFileName.inputs.json" -Value (ConvertTo-Json -InputObject $datasource.input -Depth 100) -Force
@@ -780,3 +819,4 @@ $delegatedFormCategoryGuids = (ConvertTo-Json -InputObject $delegatedFormCategor
     $countForm++
     Write-Verbose -verbose "[$countForm] of [$($allForms.count)]. Export [$delegatedFormName] done"
 }
+
