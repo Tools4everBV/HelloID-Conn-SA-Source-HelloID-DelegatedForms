@@ -166,13 +166,13 @@ foreach ($form in $allForms) {
         $psScripts.Add($tmpScript)
 
         # Export Delegated Form automation task to Manual Resource Folder
-        $tmpFileName = "$manualResourceFolder\[task]_$($delegatedFormAutomationTask.Name).ps1".replace('|', '-').replace('&', 'AND')
+        $tmpFileName = "$manualResourceFolder\[task]_$($delegatedFormAutomationTask.Name).ps1".replace('|', '-').replace('&', 'AND').replace('/', ' OR ')
         set-content -LiteralPath $tmpFileName -Value $tmpScript -Force
 
         # Export Delegated Form automation task mapping to Manual Resource Folder
         $tmpMapping = $($delegatedFormAutomationTask.variables) | Select-Object Name, Value
         $tmpMapping = $tmpMapping | Where-Object { $_.name -ne "powershellscript" -and $_.name -ne "useTemplate" -and $_.name -ne "powerShellScriptGuid" }
-        $tmpFileName = "$manualResourceFolder\[task]_$($delegatedFormAutomationTask.Name).mapping.json".replace('|', '-').replace('&', 'AND')
+        $tmpFileName = "$manualResourceFolder\[task]_$($delegatedFormAutomationTask.Name).mapping.json".replace('|', '-').replace('&', 'AND').replace('/', ' OR ')
         set-content -LiteralPath $tmpFileName -Value (ConvertTo-Json -InputObject $tmpMapping -Depth 100) -Force
     }
     else {
@@ -183,7 +183,7 @@ foreach ($form in $allForms) {
         $psScripts.Add($tmpScript)
 
         # Export Delegated Form task to Manual Resource Folder
-        $tmpFileName = "$manualResourceFolder\[task]_$tmpScriptName.ps1".replace('|', '-').replace('&', 'AND')
+        $tmpFileName = "$manualResourceFolder\[task]_$tmpScriptName.ps1".replace('|', '-').replace('&', 'AND').replace('/', ' OR ')
         set-content -LiteralPath $tmpFileName -Value $tmpScript -Force
 
         # Export Delegated Form task config to Manual Resource Folder
@@ -192,7 +192,7 @@ foreach ($form in $allForms) {
             runInCloud = $delegatedForm.task.runInCloud;
         }
 
-        $tmpFileName = "$manualResourceFolder\[task]_$tmpScriptName.config.json".replace('|', '-').replace('&', 'AND')
+        $tmpFileName = "$manualResourceFolder\[task]_$tmpScriptName.config.json".replace('|', '-').replace('&', 'AND').replace('/', ' OR ')
         set-content -LiteralPath $tmpFileName -Value (ConvertTo-Json -InputObject $taskConfig -Depth 100) -Force
     }
 

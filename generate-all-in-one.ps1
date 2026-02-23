@@ -80,7 +80,10 @@ function Get-HelloIDData([string]$endpointUri) {
 
 
 #Delegated Form
-$delegatedForm = (Get-HelloIDData -endpointUri "/api/v1/delegatedforms/$delegatedFormName")
+$allDelegatedForms = (Get-HelloIDData -endpointUri "/api/v1/delegatedforms")
+$delegatedFormWithoutTasks = $allDelegatedForms | Where-Object { $_.name -eq $delegatedFormName }
+$delegatedFormGuid = $delegatedFormWithoutTasks.delegatedFormGUID
+$delegatedForm = (Get-HelloIDData -endpointUri "/api/v1/delegatedforms/$delegatedFormGuid")
 if ([string]::IsNullOrEmpty($delegatedForm.delegatedFormGUID)) {
     Write-Error "Failed to load Delegated Form called: $delegatedFormName";
     exit;
@@ -124,13 +127,13 @@ if (-not [string]::IsNullOrEmpty($delegatedFormAutomationTaskGUID)) {
     $psScripts.Add($tmpScript)
 
     # Export Delegated Form automation task to Manual Resource Folder
-    $tmpFileName = "$manualResourceFolder\[task]_$($delegatedFormAutomationTask.Name).ps1"
+    $tmpFileName = "$manualResourceFolder\[task]_$($delegatedFormAutomationTask.Name).ps1".replace('|', '-').replace('&', 'AND').replace('/', ' OR ')
     set-content -LiteralPath $tmpFileName -Value $tmpScript -Force
 
     # Export Delegated Form automation task mapping to Manual Resource Folder
     $tmpMapping = $($delegatedFormAutomationTask.variables) | Select-Object Name, Value
     $tmpMapping = $tmpMapping | Where-Object { $_.name -ne "powershellscript" -and $_.name -ne "useTemplate" -and $_.name -ne "powerShellScriptGuid" }
-    $tmpFileName = "$manualResourceFolder\[task]_$($delegatedFormAutomationTask.Name).mapping.json"
+    $tmpFileName = "$manualResourceFolder\[task]_$($delegatedFormAutomationTask.Name).mapping.json".replace('|', '-').replace('&', 'AND').replace('/', ' OR ')
     set-content -LiteralPath $tmpFileName -Value (ConvertTo-Json -InputObject $tmpMapping -Depth 100) -Force
 }
 else {
@@ -141,7 +144,7 @@ else {
     $psScripts.Add($tmpScript)
 
     # Export Delegated Form task to Manual Resource Folder
-    $tmpFileName = "$manualResourceFolder\[task]_$tmpScriptName.ps1"
+    $tmpFileName = "$manualResourceFolder\[task]_$tmpScriptName.ps1".replace('|', '-').replace('&', 'AND').replace('/', ' OR ')
     set-content -LiteralPath $tmpFileName -Value $tmpScript -Force
 
     # Export Delegated Form task config to Manual Resource Folder
@@ -150,7 +153,7 @@ else {
         runInCloud = $delegatedForm.task.runInCloud;
     }
 
-    $tmpFileName = "$manualResourceFolder\[task]_$tmpScriptName.config.json"
+    $tmpFileName = "$manualResourceFolder\[task]_$tmpScriptName.config.json".replace('|', '-').replace('&', 'AND').replace('/', ' OR ')
     set-content -LiteralPath $tmpFileName -Value (ConvertTo-Json -InputObject $taskConfig -Depth 100) -Force
 }
 
@@ -187,7 +190,7 @@ foreach ($item in $script:dataSourcesGuids.GetEnumerator()) {
             # Static data source
             2 {
                 # Export Data source to Manual resource folder
-                $tmpFileName = "$manualResourceFolder\[static-datasource]_$($dataSource.name)"
+                $tmpFileName = "$manualResourceFolder\[static-datasource]_$($dataSource.name)".replace('|', '-').replace('&', 'AND')
                 set-content -LiteralPath "$tmpFileName.json" -Value (ConvertTo-Json -InputObject $datasource.value -Depth 100) -Force
                 set-content -LiteralPath "$tmpFileName.model.json" -Value (ConvertTo-Json -InputObject $datasource.model -Depth 100) -Force
                 break;
@@ -200,7 +203,7 @@ foreach ($item in $script:dataSourcesGuids.GetEnumerator()) {
                 $psScripts.Add($tmpScript)
                 
                 # Export Data source to Manual resource folder
-                $tmpFileName = "$manualResourceFolder\[task-datasource]_$($dataSource.name)"
+                $tmpFileName = "$manualResourceFolder\[task-datasource]_$($dataSource.name)".replace('|', '-').replace('&', 'AND')
                 set-content -LiteralPath "$tmpFileName.ps1" -Value $tmpScript -Force
                 set-content -LiteralPath "$tmpFileName.model.json" -Value (ConvertTo-Json -InputObject $datasource.model -Depth 100) -Force
                 set-content -LiteralPath "$tmpFileName.inputs.json" -Value (ConvertTo-Json -InputObject $datasource.input -Depth 100) -Force
@@ -214,7 +217,7 @@ foreach ($item in $script:dataSourcesGuids.GetEnumerator()) {
                 $psScripts.Add($tmpScript);
 
                 # Export Data source to Manual resource folder
-                $tmpFileName = "$manualResourceFolder\[powershell-datasource]_$($dataSource.name)"
+                $tmpFileName = "$manualResourceFolder\[powershell-datasource]_$($dataSource.name)".replace('|', '-').replace('&', 'AND')
                 set-content -LiteralPath "$tmpFileName.ps1" -Value $tmpScript -Force
                 set-content -LiteralPath "$tmpFileName.model.json" -Value (ConvertTo-Json -InputObject $datasource.model -Depth 100) -Force
                 set-content -LiteralPath "$tmpFileName.inputs.json" -Value (ConvertTo-Json -InputObject $datasource.input -Depth 100) -Force
