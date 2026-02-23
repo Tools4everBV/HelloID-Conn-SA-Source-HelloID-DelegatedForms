@@ -80,7 +80,10 @@ function Get-HelloIDData([string]$endpointUri) {
 
 
 #Delegated Form
-$delegatedForm = (Get-HelloIDData -endpointUri "/api/v1/delegatedforms/$delegatedFormName")
+$allDelegatedForms = (Get-HelloIDData -endpointUri "/api/v1/delegatedforms")
+$delegatedFormWithoutTasks = $allDelegatedForms | Where-Object { $_.name -eq $delegatedFormName }
+$delegatedFormGuid = $delegatedFormWithoutTasks.delegatedFormGUID
+$delegatedForm = (Get-HelloIDData -endpointUri "/api/v1/delegatedforms/$delegatedFormGuid")
 if ([string]::IsNullOrEmpty($delegatedForm.delegatedFormGUID)) {
     Write-Error "Failed to load Delegated Form called: $delegatedFormName";
     exit;
